@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cadastro Eleitoral • Coordenadora Dainara Torres</title>
+<style>
+:root{--pink:#e7a1b5;--pink2:#f8e4ea;--pink3:#fff7f9;--pink4:#d8879f;--text:#4b3b41;--muted:#8b747c;--line:#ead5db;--white:#fff;--danger:#c45d6f;--shadow:0 10px 28px rgba(122,77,92,.08)}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--pink3);color:var(--text)}
+button,input,select{font:inherit}.app{min-height:100vh;display:flex}.sidebar{width:255px;background:var(--white);border-right:1px solid var(--line);padding:24px 16px;position:fixed;inset:0 auto 0 0;z-index:10}
+.brand{padding:4px 12px 24px}.brand b{display:block;font-size:20px}.brand span{font-size:13px;color:var(--muted)}
+.nav-title{font-size:11px;font-weight:800;color:#a78c94;margin:18px 12px 8px;text-transform:uppercase;letter-spacing:.08em}
+.nav button{width:100%;border:0;background:none;text-align:left;padding:12px 14px;border-radius:12px;color:var(--muted);cursor:pointer;font-weight:700}
+.nav button.active,.nav button:hover{background:var(--pink2);color:#9f5d72}
+.main{margin-left:255px;width:calc(100% - 255px);min-height:100vh}.topbar{height:86px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 34px}
+.topbar h1{font-size:22px;margin:0}.topbar p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.primary{background:var(--pink);color:#fff;border:0;border-radius:10px;padding:12px 17px;font-weight:800;cursor:pointer}.primary:hover{background:var(--pink4)}
+.content{padding:30px;max-width:1450px;margin:auto}.view{display:none}.view.active{display:block}
+.page-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px}.page-head h2{margin:0 0 5px;font-size:25px}.page-head p{margin:0;color:var(--muted)}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:22px}.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:22px;box-shadow:var(--shadow)}.label{color:var(--muted);font-size:13px}.value{font-size:30px;font-weight:850;margin-top:9px}.accent{color:#a75f76}
+.panel{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:24px;margin-bottom:22px}
+.toolbar{display:flex;gap:10px;margin-bottom:20px}.search{flex:1;padding:13px 15px;border:1px solid var(--line);border-radius:11px;outline:none}.search:focus,input:focus,select:focus{border-color:var(--pink);box-shadow:0 0 0 3px var(--pink2)}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:14px 12px;border-bottom:1px solid #f0e1e5;font-size:14px}th{font-size:12px;text-transform:uppercase;color:#866d75}tbody tr:hover{background:#fff9fa}.pill{display:inline-flex;padding:5px 9px;border-radius:999px;background:var(--pink2);color:#9f5d72;font-weight:800;font-size:12px}
+.linkbtn{border:0;background:var(--pink2);color:#9f5d72;padding:8px 11px;border-radius:9px;font-weight:800;cursor:pointer}
+.form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}.field{display:flex;flex-direction:column;gap:7px}.field.full{grid-column:1/-1}.field label{font-size:13px;font-weight:800}.field input,.field select{padding:12px;border:1px solid var(--line);border-radius:10px;background:#fff;outline:none}.section-title{font-size:16px;margin:4px 0 16px;padding-top:5px}.form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}.secondary{background:#fff;border:1px solid var(--line);color:var(--text);padding:11px 16px;border-radius:10px;font-weight:800;cursor:pointer}
+.detail-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:20px}.hero{display:flex;align-items:center;justify-content:space-between}.hero h3{margin:0;font-size:23px}.hero p{margin:5px 0;color:var(--muted)}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.mini{background:var(--pink3);border:1px solid var(--line);border-radius:12px;padding:15px}.mini strong{font-size:22px;display:block;margin-top:4px}.empty{text-align:center;color:var(--muted);padding:38px}
+.toast{position:fixed;right:24px;bottom:24px;background:#4b3b41;color:#fff;padding:13px 16px;border-radius:10px;display:none;z-index:50}.mobile-menu{display:none}
+@media(max-width:900px){.sidebar{transform:translateX(-100%);transition:.2s}.sidebar.open{transform:translateX(0)}.main{margin-left:0;width:100%}.mobile-menu{display:inline-flex;border:0;background:none;font-size:22px;margin-right:10px}.topbar{padding:0 18px}.content{padding:20px}.cards{grid-template-columns:repeat(2,1fr)}.detail-grid{grid-template-columns:1fr}}
+@media(max-width:600px){.topbar{height:78px}.topbar h1{font-size:18px}.topbar p{display:none}.topbar .primary{padding:9px 11px;font-size:12px}.cards{grid-template-columns:1fr 1fr;gap:10px}.card{padding:16px}.value{font-size:25px}.form-grid{grid-template-columns:1fr}.field.full{grid-column:auto}.toolbar{flex-direction:column}.panel{padding:16px;overflow:auto}table{min-width:650px}.page-head{gap:12px}.page-head .primary{white-space:nowrap}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="sidebar" id="sidebar">
+  <div class="brand"><b>Cadastro Eleitoral</b><span>Coordenadora Dainara Torres</span></div>
+  <div class="nav-title">Menu</div>
+  <nav class="nav">
+    <button class="active" data-view="dashboard">⌂ &nbsp; Dashboard</button>
+    <button data-view="leaderships">♙ &nbsp; Lideranças</button>
+    <button data-view="activists">♧ &nbsp; Ativistas</button>
+    <button data-view="newLeadership">＋ &nbsp; Novo cadastro</button>
+    <button data-view="settings">⚙ &nbsp; Configurações</button>
+  </nav>
+</aside>
+<main class="main">
+<header class="topbar">
+  <div><button class="mobile-menu" id="mobileMenu">☰</button><h1>Cadastro Eleitoral</h1><p>Coordenadora Dainara Torres</p></div>
+  <button class="primary" id="topNew">+ Nova liderança</button>
+</header>
+<section class="content">
+<div class="view active" id="dashboard">
+  <div class="page-head"><div><h2>Dashboard</h2><p>Visão geral dos cadastros.</p></div></div>
+  <div class="cards">
+    <div class="card"><div class="label">Lideranças</div><div class="value accent" id="countL">0</div></div>
+    <div class="card"><div class="label">Ativistas</div><div class="value accent" id="countA">0</div></div>
+    <div class="card"><div class="label">Equipes</div><div class="value accent" id="countE">0</div></div>
+    <div class="card"><div class="label">Cadastros recentes</div><div class="value accent" id="countR">0</div></div>
+  </div>
+  <div class="panel"><div class="page-head"><div><h3>Atividade recente</h3><p>Últimos cadastros realizados neste navegador.</p></div></div><div id="recent" class="empty">Nenhum cadastro encontrado.</div></div>
+</div>
+
+<div class="view" id="leaderships">
+  <div class="page-head"><div><h2>Lideranças</h2><p>Gerencie as lideranças cadastradas.</p></div><button class="primary" onclick="show('newLeadership')">+ Nova liderança</button></div>
+  <div class="panel"><div class="toolbar"><input class="search" id="leadSearch" placeholder="Pesquisar liderança..."><button class="secondary" onclick="exportCSV()">Exportar CSV</button></div>
+  <table><thead><tr><th>Liderança</th><th>Contato</th><th>Equipe</th><th>Ativistas</th><th>Ação</th></tr></thead><tbody id="leadTable"></tbody></table></div>
+</div>
+
+<div class="view" id="activists">
+  <div class="page-head"><div><h2>Ativistas</h2><p>Lista geral de pessoas vinculadas às lideranças.</p></div></div>
+  <div class="panel"><div class="toolbar"><input class="search" id="actSearch" placeholder="Pesquisar ativista..."></div>
+  <table><thead><tr><th>Ativista</th><th>Telefone</th><th>Bairro</th><th>Liderança</th><th>Ação</th></tr></thead><tbody id="actTable"></tbody></table></div>
+</div>
+
+<div class="view" id="newLeadership">
+  <div class="page-head"><div><h2>Nova liderança</h2><p>Preencha os dados administrativos necessários.</p></div></div>
+  <div class="panel">
+    <h3 class="section-title">Dados pessoais</h3>
+    <div class="form-grid">
+      <div class="field full"><label>Nome completo</label><input id="l_name"></div>
+      <div class="field"><label>Data de nascimento</label><input id="l_birth" type="date"></div>
+      <div class="field"><label>Telefone</label><input id="l_phone"></div>
+      <div class="field"><label>E-mail</label><input id="l_email" type="email"></div>
+      <div class="field"><label>Nome da mãe</label><input id="l_mother"></div>
+      <div class="field full"><label>Endereço</label><input id="l_address"></div>
+      <div class="field"><label>Bairro</label><input id="l_neighborhood"></div>
+      <div class="field"><label>CEP</label><input id="l_cep"></div>
+    </div>
+    <h3 class="section-title">Pagamento administrativo</h3>
+    <div class="form-grid">
+      <div class="field"><label>Chave Pix</label><input id="l_pix"></div>
+      <div class="field"><label>Banco</label><input id="l_bank"></div>
+      <div class="field"><label>Nome do titular</label><input id="l_pixname"></div>
+    </div>
+    <div class="form-actions"><button class="secondary" onclick="show('dashboard')">Cancelar</button><button class="primary" onclick="saveLeadership()">Salvar liderança</button></div>
+  </div>
+</div>
+
+<div class="view" id="leadDetail">
+  <div class="page-head"><div><h2 id="detailTitle">Liderança</h2><p id="detailSub"></p></div><button class="primary" onclick="openNewActivist()">+ Adicionar ativista</button></div>
+  <div class="detail-grid">
+    <div class="panel"><div class="hero"><div><h3 id="detailName"></h3><p id="detailContact"></p></div><span class="pill">Ativa</span></div><hr style="border:0;border-top:1px solid var(--line);margin:20px 0"><div id="detailInfo"></div></div>
+    <div class="panel"><h3>Resumo da equipe</h3><div class="stats"><div class="mini"><span class="label">Ativistas</span><strong id="detailCount">0</strong></div><div class="mini"><span class="label">Status</span><strong>Ativa</strong></div><div class="mini"><span class="label">Cadastro</span><strong>OK</strong></div></div></div>
+  </div>
+  <div class="panel"><div class="page-head"><div><h3>Ativistas vinculados</h3><p>Todos os ativistas desta liderança.</p></div></div><table><thead><tr><th>Nome</th><th>Telefone</th><th>Bairro</th><th>Ação</th></tr></thead><tbody id="detailActs"></tbody></table></div>
+</div>
+
+<div class="view" id="newActivist">
+  <div class="page-head"><div><h2>Novo ativista</h2><p id="actLeaderLabel"></p></div></div>
+  <div class="panel">
+    <h3 class="section-title">Dados pessoais</h3>
+    <div class="form-grid">
+      <div class="field full"><label>Nome completo</label><input id="a_name"></div>
+      <div class="field"><label>Data de nascimento</label><input id="a_birth" type="date"></div>
+      <div class="field"><label>Telefone</label><input id="a_phone"></div>
+      <div class="field"><label>E-mail</label><input id="a_email" type="email"></div>
+      <div class="field"><label>Nome da mãe</label><input id="a_mother"></div>
+      <div class="field full"><label>Endereço</label><input id="a_address"></div>
+      <div class="field"><label>Bairro</label><input id="a_neighborhood"></div>
+      <div class="field"><label>CEP</label><input id="a_cep"></div>
+    </div>
+    <h3 class="section-title">Pagamento administrativo</h3>
+    <div class="form-grid">
+      <div class="field"><label>Chave Pix</label><input id="a_pix"></div>
+      <div class="field"><label>Banco</label><input id="a_bank"></div>
+      <div class="field"><label>Nome do titular</label><input id="a_pixname"></div>
+    </div>
+    <div class="form-actions"><button class="secondary" onclick="openLeader(currentLeader)">Cancelar</button><button class="primary" onclick="saveActivist()">Salvar ativista</button></div>
+  </div>
+</div>
+
+<div class="view" id="settings">
+  <div class="page-head"><div><h2>Configurações</h2><p>Preferências do protótipo.</p></div></div>
+  <div class="panel"><h3>Dados locais</h3><p style="color:var(--muted)">Este protótipo salva os cadastros apenas no navegador. Para uso real, conecte autenticação e um banco de dados seguro antes de inserir dados pessoais.</p><button class="secondary" onclick="clearData()">Limpar dados locais</button></div>
+</div>
+</section>
+</main>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const KEY='cadastro_oficial_v1';let db=JSON.parse(localStorage.getItem(KEY)||'{"leaderships":[],"activists":[]}');let currentLeader=null;
+function persist(){localStorage.setItem(KEY,JSON.stringify(db));renderAll()}
+function show(id){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===id));document.getElementById('sidebar').classList.remove('open');if(id==='leaderships')renderLeaderships();if(id==='activists')renderActivists();if(id==='dashboard')renderDashboard()}
+document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>show(b.dataset.view));document.getElementById('topNew').onclick=()=>show('newLeadership');document.getElementById('mobileMenu').onclick=()=>document.getElementById('sidebar').classList.toggle('open');
+function toast(t){let x=document.getElementById('toast');x.textContent=t;x.style.display='block';setTimeout(()=>x.style.display='none',2200)}
+function val(id){return document.getElementById(id).value.trim()}
+function saveLeadership(){let name=val('l_name');if(!name){toast('Informe o nome completo.');return}let l={id:crypto.randomUUID(),name,birth:val('l_birth'),phone:val('l_phone'),email:val('l_email'),mother:val('l_mother'),address:val('l_address'),neighborhood:val('l_neighborhood'),cep:val('l_cep'),pix:val('l_pix'),bank:val('l_bank'),pixname:val('l_pixname'),created:Date.now()};db.leaderships.push(l);persist();clearForm('l_');toast('Liderança cadastrada.');openLeader(l.id)}
+function clearForm(prefix){document.querySelectorAll(`[id^="${prefix}"]`).forEach(e=>e.value='')}
+function openLeader(id){currentLeader=id;let l=typeof id==='object'?id:db.leaderships.find(x=>x.id===id);if(!l)return;currentLeader=l.id;document.getElementById('detailTitle').textContent=l.name;document.getElementById('detailName').textContent=l.name;document.getElementById('detailSub').textContent='Detalhes da liderança';document.getElementById('detailContact').textContent=[l.phone,l.email].filter(Boolean).join(' • ')||'Sem contato informado';document.getElementById('detailInfo').innerHTML=`<div class="form-grid"><div><b>Data de nascimento</b><p>${l.birth||'—'}</p></div><div><b>Nome da mãe</b><p>${l.mother||'—'}</p></div><div class="field full"><b>Endereço</b><p>${[l.address,l.neighborhood,l.cep].filter(Boolean).join(', ')||'—'}</p></div><div><b>Chave Pix</b><p>${l.pix||'—'}</p></div><div><b>Banco</b><p>${l.bank||'—'}</p></div><div><b>Titular</b><p>${l.pixname||'—'}</p></div></div>`;let acts=db.activists.filter(a=>a.leaderId===l.id);document.getElementById('detailCount').textContent=acts.length;document.getElementById('detailActs').innerHTML=acts.length?acts.map(a=>`<tr><td><b>${a.name}</b></td><td>${a.phone||'—'}</td><td>${a.neighborhood||'—'}</td><td><button class="linkbtn" onclick="viewActivist('${a.id}')">Ver</button></td></tr>`).join(''):`<tr><td colspan="4" class="empty">Nenhum ativista vinculado.</td></tr>`;show('leadDetail')}
+function openNewActivist(){let l=db.leaderships.find(x=>x.id===currentLeader);if(!l)return;document.getElementById('actLeaderLabel').textContent='Liderança responsável: '+l.name;show('newActivist')}
+function saveActivist(){let name=val('a_name');if(!name){toast('Informe o nome completo.');return}let a={id:crypto.randomUUID(),leaderId:currentLeader,name,birth:val('a_birth'),phone:val('a_phone'),email:val('a_email'),mother:val('a_mother'),address:val('a_address'),neighborhood:val('a_neighborhood'),cep:val('a_cep'),pix:val('a_pix'),bank:val('a_bank'),pixname:val('a_pixname'),created:Date.now()};db.activists.push(a);persist();clearForm('a_');toast('Ativista vinculado.');openLeader(currentLeader)}
+function viewActivist(id){let a=db.activists.find(x=>x.id===id),l=db.leaderships.find(x=>x.id===a.leaderId);alert(`Ativista: ${a.name}\\nLiderança: ${l?.name||'—'}\\nTelefone: ${a.phone||'—'}\\nBairro: ${a.neighborhood||'—'}`)}
+function renderDashboard(){document.getElementById('countL').textContent=db.leaderships.length;document.getElementById('countA').textContent=db.activists.length;document.getElementById('countE').textContent=db.leaderships.length;document.getElementById('countR').textContent=db.leaderships.filter(x=>Date.now()-x.created<86400000).length+db.activists.filter(x=>Date.now()-x.created<86400000).length;let recent=[...db.leaderships.map(x=>({name:x.name,type:'Liderança',created:x.created})),...db.activists.map(x=>({name:x.name,type:'Ativista',created:x.created}))].sort((a,b)=>b.created-a.created).slice(0,6);document.getElementById('recent').innerHTML=recent.length?recent.map(x=>`<div style="padding:12px 0;border-bottom:1px solid #f0e1e5"><b>${x.name}</b> <span class="pill">${x.type}</span></div>`).join(''):'Nenhum cadastro encontrado.'}
+function renderLeaderships(q=''){let s=q.toLowerCase();let rows=db.leaderships.filter(l=>l.name.toLowerCase().includes(s));document.getElementById('leadTable').innerHTML=rows.length?rows.map(l=>`<tr><td><b>${l.name}</b></td><td>${l.phone||'—'}<br><span style="color:var(--muted)">${l.email||''}</span></td><td><span class="pill">${l.name}</span></td><td>${db.activists.filter(a=>a.leaderId===l.id).length}</td><td><button class="linkbtn" onclick="openLeader('${l.id}')">Ver</button></td></tr>`).join(''):`<tr><td colspan="5" class="empty">Nenhum cadastro encontrado.</td></tr>`}
+function renderActivists(q=''){let s=q.toLowerCase();let rows=db.activists.filter(a=>a.name.toLowerCase().includes(s));document.getElementById('actTable').innerHTML=rows.length?rows.map(a=>{let l=db.leaderships.find(x=>x.id===a.leaderId);return `<tr><td><b>${a.name}</b></td><td>${a.phone||'—'}</td><td>${a.neighborhood||'—'}</td><td>${l?.name||'—'}</td><td><button class="linkbtn" onclick="viewActivist('${a.id}')">Ver</button></td></tr>`}).join(''):`<tr><td colspan="5" class="empty">Nenhum cadastro encontrado.</td></tr>`}
+document.getElementById('leadSearch').oninput=e=>renderLeaderships(e.target.value);document.getElementById('actSearch').oninput=e=>renderActivists(e.target.value);
+function exportCSV(){let rows=[['Tipo','Nome','Telefone','Email','Bairro','Liderança']];db.leaderships.forEach(l=>rows.push(['Liderança',l.name,l.phone,l.email,l.neighborhood,l.name]));db.activists.forEach(a=>{let l=db.leaderships.find(x=>x.id===a.leaderId);rows.push(['Ativista',a.name,a.phone,a.email,a.neighborhood,l?.name||''])});let csv=rows.map(r=>r.map(v=>`"${String(v||'').replaceAll('"','""')}"`).join(';')).join('\\n');let blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='cadastro.csv';a.click();URL.revokeObjectURL(url)}
+function clearData(){if(confirm('Apagar todos os dados deste navegador?')){db={leaderships:[],activists:[]};persist();toast('Dados locais apagados.');show('dashboard')}}
+function renderAll(){renderDashboard();renderLeaderships();renderActivists()}renderAll();
+</script>
+</body></html>
