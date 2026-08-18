@@ -85,6 +85,24 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:14px 12p
       <div class="field"><label>Bairro</label><input id="l_neighborhood"></div>
       <div class="field"><label>CEP</label><input id="l_cep"></div>
     </div>
+<h3 class="section-title">Dados eleitorais</h3>
+
+<div class="form-grid">
+  <div class="field">
+    <label>Título de eleitor</label>
+    <input id="a_title" type="text" inputmode="numeric" placeholder="Digite o título de eleitor">
+  </div>
+
+  <div class="field">
+    <label>Zona</label>
+    <input id="a_zone" type="text" inputmode="numeric" placeholder="Digite a zona eleitoral">
+  </div>
+
+  <div class="field">
+    <label>Seção</label>
+    <input id="a_section" type="text" inputmode="numeric" placeholder="Digite a seção eleitoral">
+  </div>
+</div>
     <h3 class="section-title">Pagamento administrativo</h3>
     <div class="form-grid">
       <div class="field"><label>Chave Pix</label><input id="l_pix"></div>
@@ -118,6 +136,24 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:14px 12p
       <div class="field"><label>Bairro</label><input id="a_neighborhood"></div>
       <div class="field"><label>CEP</label><input id="a_cep"></div>
     </div>
+    <h3 class="section-title">Dados eleitorais</h3>
+
+<div class="form-grid">
+  <div class="field">
+    <label>Título de eleitor</label>
+    <input id="l_title" type="text" inputmode="numeric" placeholder="Digite o título de eleitor">
+  </div>
+
+  <div class="field">
+    <label>Zona</label>
+    <input id="l_zone" type="text" inputmode="numeric" placeholder="Digite a zona eleitoral">
+  </div>
+
+  <div class="field">
+    <label>Seção</label>
+    <input id="l_section" type="text" inputmode="numeric" placeholder="Digite a seção eleitoral">
+  </div>
+</div>
     <h3 class="section-title">Pagamento administrativo</h3>
     <div class="form-grid">
       <div class="field"><label>Chave Pix</label><input id="a_pix"></div>
@@ -145,9 +181,55 @@ function toast(t){let x=document.getElementById('toast');x.textContent=t;x.style
 function val(id){return document.getElementById(id).value.trim()}
 function saveLeadership(){let name=val('l_name');if(!name){toast('Informe o nome completo.');return}let l={id:crypto.randomUUID(),name,birth:val('l_birth'),phone:val('l_phone'),email:val('l_email'),mother:val('l_mother'),address:val('l_address'),neighborhood:val('l_neighborhood'),cep:val('l_cep'),pix:val('l_pix'),bank:val('l_bank'),pixname:val('l_pixname'),created:Date.now()};db.leaderships.push(l);persist();clearForm('l_');toast('Liderança cadastrada.');openLeader(l.id)}
 function clearForm(prefix){document.querySelectorAll(`[id^="${prefix}"]`).forEach(e=>e.value='')}
-function openLeader(id){currentLeader=id;let l=typeof id==='object'?id:db.leaderships.find(x=>x.id===id);if(!l)return;currentLeader=l.id;document.getElementById('detailTitle').textContent=l.name;document.getElementById('detailName').textContent=l.name;document.getElementById('detailSub').textContent='Detalhes da liderança';document.getElementById('detailContact').textContent=[l.phone,l.email].filter(Boolean).join(' • ')||'Sem contato informado';document.getElementById('detailInfo').innerHTML=`<div class="form-grid"><div><b>Data de nascimento</b><p>${l.birth||'—'}</p></div><div><b>Nome da mãe</b><p>${l.mother||'—'}</p></div><div class="field full"><b>Endereço</b><p>${[l.address,l.neighborhood,l.cep].filter(Boolean).join(', ')||'—'}</p></div><div><b>Chave Pix</b><p>${l.pix||'—'}</p></div><div><b>Banco</b><p>${l.bank||'—'}</p></div><div><b>Titular</b><p>${l.pixname||'—'}</p></div></div>`;let acts=db.activists.filter(a=>a.leaderId===l.id);document.getElementById('detailCount').textContent=acts.length;document.getElementById('detailActs').innerHTML=acts.length?acts.map(a=>`<tr><td><b>${a.name}</b></td><td>${a.phone||'—'}</td><td>${a.neighborhood||'—'}</td><td><button class="linkbtn" onclick="viewActivist('${a.id}')">Ver</button></td></tr>`).join(''):`<tr><td colspan="4" class="empty">Nenhum ativista vinculado.</td></tr>`;show('leadDetail')}
+function openLeader(id){currentLeader=id;let l=typeof id==='object'?id:db.leaderships.find(x=>x.id===id);if(!l)return;currentLeader=l.id;document.getElementById('detailTitle').textContent=l.name;document.getElementById('detailName').textContent=l.name;document.getElementById('detailSub').textContent='Detalhes da liderança';document.getElementById('detailContact').textContent=[l.phone,l.email].filter(Boolean).join(' • ')||'Sem contato informado';document.getElementById('detailInfo').innerHTML=`
+<div class="form-grid">
+
+<div>
+  <b>Data de nascimento</b>
+  <p>${l.birth||'—'}</p>
+</div>
+
+<div>
+  <b>Nome da mãe</b>
+  <p>${l.mother||'—'}</p>
+</div>
+
+<div>
+  <b>Título de eleitor</b>
+  <p>${l.title||'—'}</p>
+</div>
+
+<div>
+  <b>Zona</b>
+  <p>${l.zone||'—'}</p>
+</div>
+
+<div>
+  <b>Seção</b>
+  <p>${l.section||'—'}</p>
+</div><div><b>Chave Pix</b><p>${l.pix||'—'}</p></div><div><b>Banco</b><p>${l.bank||'—'}</p></div><div><b>Titular</b><p>${l.pixname||'—'}</p></div></div>`;let acts=db.activists.filter(a=>a.leaderId===l.id);document.getElementById('detailCount').textContent=acts.length;document.getElementById('detailActs').innerHTML=acts.length?acts.map(a=>`<tr><td><b>${a.name}</b></td><td>${a.phone||'—'}</td><td>${a.neighborhood||'—'}</td><td><button class="linkbtn" onclick="viewActivist('${a.id}')">Ver</button></td></tr>`).join(''):`<tr><td colspan="4" class="empty">Nenhum ativista vinculado.</td></tr>`;show('leadDetail')}
 function openNewActivist(){let l=db.leaderships.find(x=>x.id===currentLeader);if(!l)return;document.getElementById('actLeaderLabel').textContent='Liderança responsável: '+l.name;show('newActivist')}
-function saveActivist(){let name=val('a_name');if(!name){toast('Informe o nome completo.');return}let a={id:crypto.randomUUID(),leaderId:currentLeader,name,birth:val('a_birth'),phone:val('a_phone'),email:val('a_email'),mother:val('a_mother'),address:val('a_address'),neighborhood:val('a_neighborhood'),cep:val('a_cep'),pix:val('a_pix'),bank:val('a_bank'),pixname:val('a_pixname'),created:Date.now()};db.activists.push(a);persist();clearForm('a_');toast('Ativista vinculado.');openLeader(currentLeader)}
+function saveActivist(){let a={
+  id:crypto.randomUUID(),
+  leaderId:currentLeader,
+  name,
+  birth:val('a_birth'),
+  phone:val('a_phone'),
+  email:val('a_email'),
+  mother:val('a_mother'),
+  address:val('a_address'),
+  neighborhood:val('a_neighborhood'),
+  cep:val('a_cep'),
+
+  title:val('a_title'),
+  zone:val('a_zone'),
+  section:val('a_section'),
+
+  pix:val('a_pix'),
+  bank:val('a_bank'),
+  pixname:val('a_pixname'),
+  created:Date.now()
+};
 function viewActivist(id){let a=db.activists.find(x=>x.id===id),l=db.leaderships.find(x=>x.id===a.leaderId);alert(`Ativista: ${a.name}\\nLiderança: ${l?.name||'—'}\\nTelefone: ${a.phone||'—'}\\nBairro: ${a.neighborhood||'—'}`)}
 function renderDashboard(){document.getElementById('countL').textContent=db.leaderships.length;document.getElementById('countA').textContent=db.activists.length;document.getElementById('countE').textContent=db.leaderships.length;document.getElementById('countR').textContent=db.leaderships.filter(x=>Date.now()-x.created<86400000).length+db.activists.filter(x=>Date.now()-x.created<86400000).length;let recent=[...db.leaderships.map(x=>({name:x.name,type:'Liderança',created:x.created})),...db.activists.map(x=>({name:x.name,type:'Ativista',created:x.created}))].sort((a,b)=>b.created-a.created).slice(0,6);document.getElementById('recent').innerHTML=recent.length?recent.map(x=>`<div style="padding:12px 0;border-bottom:1px solid #f0e1e5"><b>${x.name}</b> <span class="pill">${x.type}</span></div>`).join(''):'Nenhum cadastro encontrado.'}
 function renderLeaderships(q=''){let s=q.toLowerCase();let rows=db.leaderships.filter(l=>l.name.toLowerCase().includes(s));document.getElementById('leadTable').innerHTML=rows.length?rows.map(l=>`<tr><td><b>${l.name}</b></td><td>${l.phone||'—'}<br><span style="color:var(--muted)">${l.email||''}</span></td><td><span class="pill">${l.name}</span></td><td>${db.activists.filter(a=>a.leaderId===l.id).length}</td><td><button class="linkbtn" onclick="openLeader('${l.id}')">Ver</button></td></tr>`).join(''):`<tr><td colspan="5" class="empty">Nenhum cadastro encontrado.</td></tr>`}
