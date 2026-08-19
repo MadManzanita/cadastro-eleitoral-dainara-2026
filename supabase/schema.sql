@@ -1,0 +1,15 @@
+create extension if not exists pgcrypto;
+create table if not exists profiles(id uuid primary key references auth.users(id) on delete cascade,role text not null check(role in('admin','leader')),full_name text not null,cpf text,title text,created_at timestamptz default now());
+create table if not exists leaders(id uuid primary key default gen_random_uuid(),user_id uuid unique references auth.users(id) on delete set null,full_name text not null,birth_date date,cpf text,phone text,address text,mother_name text,email text,title text,zone text,section text,neighborhood text,cep text,pix_key text,pix_name text,bank text,created_at timestamptz default now());
+create table if not exists activists(id uuid primary key default gen_random_uuid(),leader_id uuid not null references leaders(id) on delete cascade,full_name text not null,birth_date date,cpf text,phone text,address text,mother_name text,email text,title text,zone text,section text,neighborhood text,cep text,pix_key text,pix_name text,bank text,created_at timestamptz default now());
+create table if not exists advisor_contacts(id uuid primary key default gen_random_uuid(),name text not null,phone text,email text,role_label text,active boolean default true);
+alter table profiles enable row level security;alter table leaders enable row level security;alter table activists enable row level security;alter table advisor_contacts enable row level security;
+create or replace function is_admin() returns boolean language sql stable security definer set search_path=public as $$select exists(select 1 from profiles where id=auth.uid() and role='admin')$$;
+create or replace function my_leader_id() returns uuid language sql stable security definer set search_path=public as $$select id from leaders where user_id=auth.uid() limit 1$$;
+create policy "profiles self/admin" on profiles for select using(id=auth.uid() or is_admin());
+create policy "leaders own/admin" on leaders for select using(user_id=auth.uid() or is_admin());
+create policy "leaders update own/admin" on leaders for update using(user_id=auth.uid() or is_admin()) with check(user_id=auth.uid() or is_admin());
+create policy "activists own/admin" on activists for select using(leader_id=my_leader_id() or is_admin());
+create policy "activists insert own/admin" on activists for insert with check(leader_id=my_leader_id() or is_admin());
+create policy "activists update own/admin" on activists for update using(leader_id=my_leader_id() or is_admin()) with check(leader_id=my_leader_id() or is_admin());
+create policy "advisors authenticated" on advisor_contacts for select using(auth.uid() is not null);
