@@ -1,0 +1,66 @@
+name: Ajustar formatos numéricos
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/portal/page.js'
+      - '.github/workflows/format-number-fields.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Aplicar máscaras aos campos
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/portal/page.js')
+          s = p.read_text()
+
+          old = '''function Field({f,setF,n,label,type="text",required=false,placeholder}){ return <label className="field"><span>{label}{required?" *":""}</span><input type={type} required={required} value={f[n]||""} placeholder={placeholder} inputMode={["cpf","cep","title","zone","section"].includes(n)?"numeric":undefined} onChange={e=>{let v=e.target.value;if(["cpf","cep","title","zone","section"].includes(n))v=digits(v).slice(0,n==="cpf"?11:n==="title"?8:8);setF(x=>({...x,[n]:v}))}}/></label> }'''
+
+          new = '''function maskField(n,v){
+            const d=digits(v);
+            if(n==="cpf") return cpfBR(d);
+            if(n==="phone") return phoneBR(d);
+            if(n==="cep") return cepBR(d);
+            if(n==="title") return d.slice(0,8);
+            if(n==="zone"||n==="section") return d;
+            return String(v||"");
+          }
+          function Field({f,setF,n,label,type="text",required=false,placeholder}){
+            const numeric=["cpf","phone","cep","title","zone","section"].includes(n);
+            const max={cpf:14,phone:15,cep:9,title:8,zone:5,section:5}[n];
+            return <label className="field"><span>{label}{required?" *":""}</span><input type={type} required={required} value={numeric?maskField(n,f[n]):(f[n]||"")} placeholder={placeholder} maxLength={max} inputMode={numeric?"numeric":undefined} onChange={e=>{let v=e.target.value;if(numeric)v=digits(v).slice(0,n==="cpf"?11:n==="phone"?11:n==="cep"?8:n==="title"?8:5);setF(x=>({...x,[n]:v}))}}/></label>
+          }'''
+
+          if old not in s:
+              raise SystemExit('Campo Field esperado não encontrado; nenhuma alteração aplicada.')
+          s = s.replace(old,new,1)
+
+          s = s.replace('<Field f={f} setF={setF} n="phone" label="Telefone"/>','<Field f={f} setF={setF} n="phone" label="Celular / telefone" placeholder="(00) 00000-0000"/>',1)
+          s = s.replace('<Field f={f} setF={setF} n="cpf" label="CPF" required placeholder="00000000000"/>','<Field f={f} setF={setF} n="cpf" label="CPF" required placeholder="000.000.000-00"/>',1)
+          s = s.replace('<Field f={f} setF={setF} n="cep" label="CEP" placeholder="00000000"/>','<Field f={f} setF={setF} n="cep" label="CEP" placeholder="00000-000"/>',1)
+          s = s.replace('<Field f={f} setF={setF} n="title" label="Título de eleitor" required placeholder="00000000"/>','<Field f={f} setF={setF} n="title" label="Título de eleitor" required placeholder="00000000"/>',1)
+
+          old_admin = '<label className="field"><span>CPF *</span><input name="cpf" required maxLength={11} inputMode="numeric"/></label>'
+          new_admin = '<label className="field"><span>CPF *</span><input name="cpf" required maxLength={14} inputMode="numeric" placeholder="000.000.000-00" onChange={e=>{e.currentTarget.value=cpfBR(e.currentTarget.value)}}/></label>'
+          if old_admin not in s:
+              raise SystemExit('Campo CPF administrativo esperado não encontrado; nenhuma alteração aplicada.')
+          s = s.replace(old_admin,new_admin,1)
+
+          p.write_text(s)
+          PY
+      - name: Commitar alteração
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/portal/page.js
+          git diff --cached --quiet || git commit -m 'Corrige máscaras de CPF telefone CEP e título'
+          git push
