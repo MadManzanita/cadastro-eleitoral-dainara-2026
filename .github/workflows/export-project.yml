@@ -1,0 +1,20 @@
+name: Exportar projeto ZIP
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  zip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Criar ZIP do projeto
+        run: |
+          zip -r cadastro-eleitoral-dainara-2026-atualizado.zip . -x '.git/*' '.github/workflows/export-project.yml'
+      - name: Publicar ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: cadastro-eleitoral-dainara-2026-atualizado
+          path: cadastro-eleitoral-dainara-2026-atualizado.zip
+          retention-days: 7
