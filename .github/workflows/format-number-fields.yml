@@ -6,6 +6,7 @@ on:
     paths:
       - 'app/portal/page.js'
       - '.github/workflows/format-number-fields.yml'
+      - '.github/workflows/trigger-auth-fix.txt'
 
 permissions:
   contents: write
@@ -62,6 +63,7 @@ jobs:
           s = s.replace('const titleOK = v => digits(v).length === 8;','const titleOK = v => digits(v).length === 12;')
           s = s.replace('O título deve conter exatamente 8 dígitos.','O título deve conter exatamente 12 dígitos.')
           s = s.replace('</nav>}{admin&&', '</nav>{admin&&', 1)
+          s = s.replace('☎ Contatos da assessoria</button></nav>', '☎ Contatos da assessoria</button></> }</nav>', 1)
 
           p.write_text(s)
           PY
@@ -70,5 +72,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add app/portal/page.js
-          git diff --cached --quiet || git commit -m 'Corrige título de eleitor para 12 dígitos'
+          git diff --cached --quiet || git commit -m 'Corrige fechamento da navegação'
           git push
