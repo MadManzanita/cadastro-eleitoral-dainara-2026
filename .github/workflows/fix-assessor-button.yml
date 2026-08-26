@@ -2,58 +2,58 @@ name: Fix assessor add button
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
 
 permissions:
   contents: write
 
 jobs:
   fix:
-    if: ${{ !contains(github.event.head_commit.message, 'fix: assessor add button') }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Apply fix
+      - name: Patch assessor editor
+        shell: python
         run: |
-          python3 - <<'PY'
           from pathlib import Path
+          p = Path("app/portal/page.js")
+          s = p.read_text(encoding="utf-8")
+          if "assessorEditorOpen" not in s:
+              s = s.replace(
+                  '[assessorForm, setAssessorForm] = useState(EMPTY_ASSESSOR), [editingAssessor, setEditingAssessor] = useState(null);',
+                  '[assessorForm, setAssessorForm] = useState(EMPTY_ASSESSOR), [editingAssessor, setEditingAssessor] = useState(null), [assessorEditorOpen, setAssessorEditorOpen] = useState(false);'
+              )
+              s = s.replace(
+                  'const startAssessor = () => { setEditingAssessor(null); setAssessorForm(EMPTY_ASSESSOR); };',
+                  'const startAssessor = () => { setEditingAssessor(null); setAssessorForm({ ...EMPTY_ASSESSOR }); setAssessorEditorOpen(true); setMsg(""); };'
+              )
+              s = s.replace(
+                  'const editAssessor = (a) => { setEditingAssessor(a); setAssessorForm({ ...EMPTY_ASSESSOR, ...a }); };',
+                  'const editAssessor = (a) => { setEditingAssessor(a); setAssessorForm({ ...EMPTY_ASSESSOR, ...a }); setAssessorEditorOpen(true); setMsg(""); };'
+              )
+              s = s.replace(
+                  'const cancelAssessor = () => { setEditingAssessor(null); setAssessorForm(EMPTY_ASSESSOR); };',
+                  'const cancelAssessor = () => { setEditingAssessor(null); setAssessorForm(EMPTY_ASSESSOR); setAssessorEditorOpen(false); };'
+              )
+              s = s.replace(
+                  '{editingAssessor&&<AssessorForm form={assessorForm} setForm={setAssessorForm} save={saveAssessor} cancel={cancelAssessor} editing={editingAssessor}/>} {!editingAssessor&&!db.assessors.length&&',
+                  '{assessorEditorOpen&&<AssessorForm form={assessorForm} setForm={setAssessorForm} save={saveAssessor} cancel={cancelAssessor} editing={editingAssessor}/>} {!assessorEditorOpen&&!db.assessors.length&&'
+              )
+              p.write_text(s, encoding="utf-8")
+              print("patched")
+          else:
+              print("already patched")
 
-          path = Path('app/portal/page.js')
-          text = path.read_text(encoding='utf-8')
-
-          if 'assessorEditorOpen' in text:
-              print('Fix already present; nothing to do.')
-              raise SystemExit(0)
-
-          old_state = 'const [mode, setMode] = useState("home"), [code, setCode] = useState(""), [cpf, setCpf] = useState(""), [password, setPassword] = useState(""), [msg, setMsg] = useState(""), [f, setF] = useState(EMPTY), [db, setDb] = useState(fresh()), [role, setRole] = useState(null), [leaderId, setLeaderId] = useState(null), [view, setView] = useState("dashboard"), [search, setSearch] = useState(""), [detail, setDetail] = useState(null), [editing, setEditing] = useState(null), [returnTo, setReturnTo] = useState("home"), [generatedPassword, setGeneratedPassword] = useState(""), [generatedPerson, setGeneratedPerson] = useState(null), [assessorForm, setAssessorForm] = useState(EMPTY_ASSESSOR), [editingAssessor, setEditingAssessor] = useState(null);'
-          new_state = 'const [mode, setMode] = useState("home"), [code, setCode] = useState(""), [cpf, setCpf] = useState(""), [password, setPassword] = useState(""), [msg, setMsg] = useState(""), [f, setF] = useState(EMPTY), [db, setDb] = useState(fresh()), [role, setRole] = useState(null), [leaderId, setLeaderId] = useState(null), [view, setView] = useState("dashboard"), [search, setSearch] = useState(""), [detail, setDetail] = useState(null), [editing, setEditing] = useState(null), [returnTo, setReturnTo] = useState("home"), [generatedPassword, setGeneratedPassword] = useState(""), [generatedPerson, setGeneratedPerson] = useState(null), [assessorForm, setAssessorForm] = useState(EMPTY_ASSESSOR), [editingAssessor, setEditingAssessor] = useState(null), [assessorEditorOpen, setAssessorEditorOpen] = useState(false);'
-
-          old_handlers = 'const startAssessor = () => { setEditingAssessor(null); setAssessorForm(EMPTY_ASSESSOR); };\n  const editAssessor = (a) => { setEditingAssessor(a); setAssessorForm({ ...EMPTY_ASSESSOR, ...a }); };\n  const cancelAssessor = () => { setEditingAssessor(null); setAssessorForm(EMPTY_ASSESSOR); };'
-          new_handlers = 'const startAssessor = () => { setEditingAssessor(null); setAssessorForm({ ...EMPTY_ASSESSOR }); setAssessorEditorOpen(true); setMsg(""); };\n  const editAssessor = (a) => { setEditingAssessor(a); setAssessorForm({ ...EMPTY_ASSESSOR, ...a }); setAssessorEditorOpen(true); setMsg(""); };\n  const cancelAssessor = () => { setEditingAssessor(null); setAssessorForm(EMPTY_ASSESSOR); setAssessorEditorOpen(false); };'
-
-          old_save = 'const item = { ...assessorForm, id: editingAssessor?.id || makeId(), created: editingAssessor?.created || Date.now(), updated: Date.now() }; setDb((d) => ({ ...d, assessors: editingAssessor ? d.assessors.map((a) => a.id === item.id ? item : a) : [...d.assessors, item] })); setMsg(editingAssessor ? "Contato da assessoria atualizado." : "Contato da assessoria adicionado."); cancelAssessor();'
-          new_save = 'const item = { ...assessorForm, name: assessorForm.name.trim(), role: assessorForm.role.trim(), phone: phoneBR(assessorForm.phone), email: assessorForm.email.trim(), notes: assessorForm.notes.trim(), id: editingAssessor?.id || makeId(), created: editingAssessor?.created || Date.now(), updated: Date.now() }; setDb((d) => ({ ...d, assessors: editingAssessor ? d.assessors.map((a) => a.id === item.id ? item : a) : [...d.assessors, item] })); setMsg(editingAssessor ? "Contato da assessoria atualizado." : "Contato da assessoria adicionado."); cancelAssessor();'
-
-          old_render = '{editingAssessor&&<AssessorForm form={assessorForm} setForm={setAssessorForm} save={saveAssessor} cancel={cancelAssessor} editing={editingAssessor}/>} {!editingAssessor&&!db.assessors.length&&<div className="empty assessor-empty">Nenhum contato cadastrado. Clique em <b>“Adicionar contato”</b> para incluir o primeiro.</div>}'
-          new_render = '{assessorEditorOpen&&<AssessorForm form={assessorForm} setForm={setAssessorForm} save={saveAssessor} cancel={cancelAssessor} editing={editingAssessor}/>} {!assessorEditorOpen&&!db.assessors.length&&<div className="empty assessor-empty">Nenhum contato cadastrado. Clique em <b>“Adicionar contato”</b> para incluir o primeiro.</div>}'
-
-          replacements = [(old_state, new_state), (old_handlers, new_handlers), (old_save, new_save), (old_render, new_render)]
-          for old, new in replacements:
-              if old not in text:
-                  raise SystemExit(f'Expected source fragment not found: {old[:100]}')
-              text = text.replace(old, new, 1)
-
-          path.write_text(text, encoding='utf-8')
-          print('Assessor add/edit flow fixed.')
-          PY
-
-      - name: Commit and remove temporary workflow
+      - name: Commit patch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "No changes"
+            exit 0
+          fi
           git add app/portal/page.js
-          git rm .github/workflows/fix-assessor-button.yml
           git commit -m "fix: assessor add button"
           git push
