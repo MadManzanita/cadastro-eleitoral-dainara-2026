@@ -1,0 +1,53 @@
+name: Fix leadership registration flow
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch registration recovery
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('app/portal/page.js')
+          source = path.read_text(encoding='utf-8')
+
+          old_credential = '''function Credential({person,password,onAccess,onBack}){return <main className="shell"><section className="card auth-card"><h2>Cadastro concluído</h2><p>{person}, sua senha de liderança foi gerada.</p><div className="credential-box"><span>CPF</span><b>{cpfBR(person.cpf)}</b><span>Senha</span><strong>{password}</strong></div><div className="result">Guarde essa senha. Ela será usada junto com o CPF para entrar na Área da Liderança.</div><button className="primary" onClick={onAccess}>Ir para acesso da liderança</button><button className="link-button" onClick={onBack}>Voltar ao início</button></section></main>}'''
+          new_credential = '''function Credential({person,password,onAccess,onBack}){if(!person)return <main className="shell"><section className="card auth-card"><h2>Cadastro concluído</h2><p>O cadastro foi salvo, mas a tela de credenciais precisa ser recuperada.</p><button className="primary" onClick={onBack}>Voltar ao início</button></section></main>;const shownPassword=password||person.password||"";return <main className="shell"><section className="card auth-card"><h2>Cadastro concluído</h2><p>{person.name}, sua senha de liderança foi gerada.</p><div className="credential-box"><span>CPF</span><b>{cpfBR(person.cpf)}</b><span>Senha</span><strong>{shownPassword}</strong></div><div className="result">Guarde essa senha. Ela será usada junto com o CPF para entrar na Área da Liderança.</div><button className="primary" onClick={onAccess}>Ir para acesso da liderança</button><button className="link-button" onClick={onBack}>Voltar ao início</button></section></main>}'''
+          if old_credential not in source:
+              raise SystemExit('Credential block not found')
+          source = source.replace(old_credential, new_credential, 1)
+
+          old_effect = ''' useEffect(()=>{try{const raw=localStorage.getItem(KEY);if(raw)setDb({...fresh(),...JSON.parse(raw)})}catch(e){console.error(e)}},[]);\n useEffect(()=>{try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){console.error(e)}},[db]);'''
+          new_effect = ''' useEffect(()=>{try{const raw=localStorage.getItem(KEY);if(raw)setDb({...fresh(),...JSON.parse(raw)})}catch(e){console.error(e)}},[]);\n useEffect(()=>{try{if(mode==="leader-credentials"&&!generatedPerson){const raw=sessionStorage.getItem(`${KEY}-new-leadership`);if(raw){const saved=JSON.parse(raw);setGeneratedPerson(saved.person||null);setGeneratedPassword(String(saved.password||saved.person?.password||""))}}}catch(e){console.error(e)}},[mode,generatedPerson]);\n useEffect(()=>{try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){console.error(e)}},[db]);'''
+          if old_effect not in source:
+              raise SystemExit('Effects block not found')
+          source = source.replace(old_effect, new_effect, 1)
+
+          old_save = '''if(!editing){setGeneratedPassword(generated);setGeneratedPerson(x);go("leader-credentials")}else{setRole(returnTo==="admin-area"?"admin":"leader");setView("dashboard");go(returnTo)}'''
+          new_save = '''if(!editing){try{sessionStorage.setItem(`${KEY}-new-leadership`,JSON.stringify({person:x,password:generated}))}catch(e){console.error(e)}setGeneratedPassword(generated);setGeneratedPerson(x);go("leader-credentials")}else{setRole(returnTo==="admin-area"?"admin":"leader");setView("dashboard");go(returnTo)}'''
+          if old_save not in source:
+              raise SystemExit('saveLeader transition not found')
+          source = source.replace(old_save, new_save, 1)
+
+          path.write_text(source, encoding='utf-8')
+
+      - name: Commit patch and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/fix-leadership-registration.yml
+          git add app/portal/page.js
+          git commit -m "Corrige tela após cadastro de liderança"
+          git push
