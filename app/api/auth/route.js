@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { hashPassword, normalizeCpf, sessionCookie, sessionFromRequest, signSession, supabaseAdmin, verifyPassword } from "../../../lib/server-auth";
 
