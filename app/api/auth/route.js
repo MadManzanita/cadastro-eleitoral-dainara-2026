@@ -1,0 +1,91 @@
+import { NextResponse } from "next/server";
+import { hashPassword, normalizeCpf, sessionCookie, sessionFromRequest, signSession, supabaseAdmin, verifyPassword } from "../../../lib/server-auth";
+
+export const runtime = "nodejs";
+const json = (body, status = 200) => NextResponse.json(body, { status });
+const error = (message, status = 400) => json({ error: message }, status);
+
+function publicPerson(row) {
+  if (!row) return null;
+  const { password_hash, ...person } = row;
+  return person;
+}
+
+export async function GET(request) {
+  const session = sessionFromRequest(request);
+  if (!session) return error("Sessão não encontrada.", 401);
+  return json({ session });
+}
+
+export async function POST(request) {
+  try {
+    const body = await request.json();
+    const action = body?.action;
+    const db = supabaseAdmin();
+
+    if (action === "logout") {
+      const response = json({ ok: true });
+      response.cookies.set(sessionCookie());
+      return response;
+    }
+
+    if (action === "login") {
+      const cpf = normalizeCpf(body.cpf);
+      const password = String(body.password || "");
+      const role = body.role === "admin" ? "admin" : "leader";
+      if (cpf.length !== 11 || !password) return error("Informe CPF e senha.");
+
+      const table = role === "admin" ? "admins" : "leaderships";
+      const { data, error: queryError } = await db.from(table).select("*").eq("cpf", cpf).maybeSingle();
+      if (queryError) throw queryError;
+      if (!data || !verifyPassword(password, data.password_hash)) return error("CPF ou senha incorretos.", 401);
+
+      const response = json({ ok: true, role, person: publicPerson(data) });
+      response.cookies.set(sessionCookie(signSession({ role, id: data.id })));
+      return response;
+    }
+
+    if (action === "setup-admin") {
+      const setupCode = String(body.setupCode || "");
+      if (!process.env.ADMIN_SETUP_CODE || !cryptoSafeEqual(setupCode, process.env.ADMIN_SETUP_CODE)) return error("Código de configuração inválido.", 403);
+      const { count, error: countError } = await db.from("admins").select("*", { count: "exact", head: true });
+      if (countError) throw countError;
+      if (count) return error("Já existe um administrador. Use o acesso administrativo.", 409);
+
+      const cpf = normalizeCpf(body.cpf);
+      const name = String(body.name || "").trim();
+      const email = String(body.email || "").trim() || null;
+      if (!name || cpf.length !== 11) return error("Informe nome e CPF válidos.");
+      const passwordHash = hashPassword(String(body.password || ""));
+      const { data, error: insertError } = await db.from("admins").insert({ name, cpf, email, password_hash: passwordHash }).select("*").single();
+      if (insertError) throw insertError;
+
+      const response = json({ ok: true, role: "admin", person: publicPerson(data) }, 201);
+      response.cookies.set(sessionCookie(signSession({ role: "admin", id: data.id })));
+      return response;
+    }
+
+    const session = sessionFromRequest(request);
+    if (!session) return error("Faça login para continuar.", 401);
+
+    if (action === "reset-leadership-password") {
+      if (session.role !== "admin") return error("Acesso não autorizado.", 403);
+      const leadershipId = String(body.leadershipId || "");
+      const nextPassword = String(body.password || "");
+      const { error: updateError } = await db.from("leaderships").update({ password_hash: hashPassword(nextPassword) }).eq("id", leadershipId);
+      if (updateError) throw updateError;
+      return json({ ok: true });
+    }
+
+    return error("Ação inválida.", 404);
+  } catch (cause) {
+    console.error("auth route", cause);
+    return error("Não foi possível concluir a operação.", 500);
+  }
+}
+
+function cryptoSafeEqual(a, b) {
+  const left = Buffer.from(String(a));
+  const right = Buffer.from(String(b));
+  return left.length === right.length && crypto.timingSafeEqual(left, right);
+}
