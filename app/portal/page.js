@@ -84,7 +84,7 @@ function Access({ admin, release, cpf, setCpf, password, setPassword, code, setC
       <label className="field"><span>CPF</span><input autoFocus inputMode="numeric" maxLength={14} value={cpfBR(cpf)} placeholder="000.000.000-00" onChange={(e) => setCpf(digits(e.target.value).slice(0, 11))} onKeyDown={(e) => e.key === "Enter" && onEnter()}/></label>
       <label className="field"><span>Senha</span><input type="password" minLength={8} value={password} placeholder={admin ? "Senha de administrador" : "Senha de acesso"} onChange={(e) => setPassword(admin ? e.target.value : e.target.value.replace(/\D/g, "").slice(0, 8))} onKeyDown={(e) => e.key === "Enter" && onEnter()}/></label>
     </>}
-    {msg && <div className="result">{msg}</div>}<button className="primary" onClick={onEnter}>{release ? "Continuar" : "Entrar"}</button>{release && <div className="auth-note">Código de teste: <b>328974</b></div>}<button className="link-button" onClick={onSwitch}>{release ? (admin ? "Voltar ao acesso administrativo" : "Já sou liderança") : (admin ? "Se tornar administrador" : "Se torne liderança")}</button>
+    {msg && <div className="result">{msg}</div>}<button className="primary" onClick={onEnter}>{release ? "Continuar" : "Entrar"}</button>{release && <div className="auth-note">Use o código de configuração definido pela coordenação.</div>}<button className="link-button" onClick={onSwitch}>{release ? (admin ? "Voltar ao acesso administrativo" : "Já sou liderança") : (admin ? "Se tornar administrador" : "Se torne liderança")}</button>
   </section></main>;
 }
 
