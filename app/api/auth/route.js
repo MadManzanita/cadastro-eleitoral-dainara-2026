@@ -66,6 +66,25 @@ export async function POST(request) {
       return response;
     }
 
+    if (action === "register-leadership") {
+      const setupCode = String(body.setupCode || "");
+      if (!process.env.LEADERSHIP_SETUP_CODE || !cryptoSafeEqual(setupCode, process.env.LEADERSHIP_SETUP_CODE)) return error("Código de cadastro inválido.", 403);
+      const cpf = normalizeCpf(body.cpf);
+      const name = String(body.name || "").trim();
+      if (!name || cpf.length !== 11) return error("Informe nome e CPF válidos.");
+      const temporaryPassword = String(Math.floor(10000000 + Math.random() * 90000000));
+      const values = {
+        name, cpf, birth: body.birth || null, phone: body.phone || null, address: body.address || null,
+        mother: body.mother || null, email: body.email || null, neighborhood: body.neighborhood || null,
+        cep: body.cep || null, title: body.title || null, electoral_zone: body.zone || null,
+        electoral_section: body.section || null, pix: body.pix || null, pix_name: body.pixname || null,
+        bank: body.bank || null, password_hash: hashPassword(temporaryPassword)
+      };
+      const { data, error: insertError } = await db.from("leaderships").insert(values).select("*").single();
+      if (insertError) throw insertError;
+      return json({ ok: true, person: publicPerson(data), temporaryPassword }, 201);
+    }
+
     const session = sessionFromRequest(request);
     if (!session) return error("Faça login para continuar.", 401);
 
