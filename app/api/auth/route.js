@@ -19,9 +19,12 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
+  let stage = "inicialização";
   try {
+    stage = "leitura da solicitação";
     const body = await request.json();
     const action = body?.action;
+    stage = "conexão com o banco";
     const db = supabaseAdmin();
 
     if (action === "logout") {
@@ -49,6 +52,7 @@ export async function POST(request) {
     if (action === "setup-admin") {
       const setupCode = String(body.setupCode || "");
       if (!process.env.ADMIN_SETUP_CODE || !cryptoSafeEqual(setupCode, process.env.ADMIN_SETUP_CODE)) return error("Código de configuração inválido.", 403);
+      stage = "verificação de administradores";
       const { count, error: countError } = await db.from("admins").select("*", { count: "exact", head: true });
       if (countError) throw countError;
       if (count) return error("Já existe um administrador. Use o acesso administrativo.", 409);
@@ -57,10 +61,13 @@ export async function POST(request) {
       const name = String(body.name || "").trim();
       const email = String(body.email || "").trim() || null;
       if (!name || cpf.length !== 11) return error("Informe nome e CPF válidos.");
+      stage = "proteção da senha";
       const passwordHash = hashPassword(String(body.password || ""));
+      stage = "gravação do administrador";
       const { data, error: insertError } = await db.from("admins").insert({ name, cpf, email, password_hash: passwordHash }).select("*").single();
       if (insertError) throw insertError;
 
+      stage = "criação da sessão";
       const response = json({ ok: true, role: "admin", person: publicPerson(data) }, 201);
       response.cookies.set(sessionCookie(signSession({ role: "admin", id: data.id })));
       return response;
@@ -99,8 +106,8 @@ export async function POST(request) {
 
     return error("Ação inválida.", 404);
   } catch (cause) {
-    console.error("auth route diagnostic", JSON.stringify({ name: cause?.name, message: cause?.message, code: cause?.code, status: cause?.status, details: cause?.details, hint: cause?.hint, keys: Object.keys(cause || {}) }));
-    return error("Não foi possível concluir a operação.", 500);
+    console.error("auth route diagnostic", stage, JSON.stringify({ name: cause?.name, message: cause?.message, code: cause?.code, status: cause?.status, details: cause?.details, hint: cause?.hint, keys: Object.keys(cause || {}) }));
+    return error(`Não foi possível concluir a operação na etapa: ${stage}.`, 500);
   }
 }
 
