@@ -3,22 +3,26 @@ export const AMAZONAS_MUNICIPALITIES = [
 ];
 
 export const MANAUS_ZONES = {
-  "Alvorada":"Centro-Oeste","Lírio do Vale":"Centro-Oeste","Da Paz":"Centro-Oeste","Chapada":"Centro-Oeste","Dom Pedro I":"Centro-Oeste","Planalto":"Centro-Oeste","Nova Esperança":"Centro-Oeste","São Geraldo":"Centro-Oeste","Redenção":"Centro-Oeste","São Jorge":"Centro-Oeste","Vila da Prata":"Centro-Oeste",
-  "Adrianópolis":"Centro-Sul","Parque 10 de Novembro":"Centro-Sul","Nossa Senhora das Graças":"Centro-Sul","Flores":"Centro-Sul","Aleixo":"Centro-Sul",
-  "Armando Mendes":"Leste","Tancredo Neves":"Leste","São José Operário":"Leste","Puraquequara":"Leste","Mauazinho":"Leste","Jorge Teixeira":"Leste","Distrito Industrial II":"Leste","Gilberto Mestrinho":"Leste","Colônia Antônio Aleixo":"Leste","Zumbi dos Palmares":"Leste","Coroado":"Leste",
-  "Cidade de Deus":"Norte","Lago Azul":"Norte","Santa Etelvina":"Norte","Novo Israel":"Norte","Novo Aleixo":"Norte","Nova Cidade":"Norte","Monte das Oliveiras":"Norte","Colônia Terra Nova":"Norte","Colônia Santo Antônio":"Norte","Cidade Nova":"Norte",
-  "Compensa":"Oeste","Ponta Negra":"Oeste","Tarumã-Açu":"Oeste","Tarumã":"Oeste","São Raimundo":"Oeste","Santo Antônio":"Oeste","Santo Agostinho":"Oeste","Glória":"Oeste",
-  "Betânia":"Sul","Vila Buriti":"Sul","São Lázaro":"Sul","São Francisco":"Sul","Santa Luzia":"Sul","Raiz":"Sul","Presidente Vargas":"Sul","Praça 14 de Janeiro":"Sul","Petrópolis":"Sul","Nossa Senhora Aparecida":"Sul","Morro da Liberdade":"Sul","Japiim":"Sul","Educandos":"Sul","Distrito Industrial I":"Sul","Crespo":"Sul","Colônia Oliveira Machado":"Sul","Centro":"Sul","Cachoeirinha":"Sul"
+  "Adrianópolis":"Centro-Sul","Aleixo":"Centro-Sul","Chapada":"Centro-Sul","Flores":"Centro-Sul","Nossa Senhora das Graças":"Centro-Sul","Parque 10 de Novembro":"Centro-Sul",
+  "Alvorada":"Centro-Oeste","Bairro da Paz":"Oeste","Compensa":"Oeste","Da Paz":"Oeste","Dom Pedro I":"Oeste","Glória":"Oeste","Lírio do Vale":"Oeste","Nova Esperança":"Oeste","Planalto":"Oeste","Ponta Negra":"Oeste","Redenção":"Oeste","Santo Agostinho":"Oeste","Santo Antônio":"Oeste","São Jorge":"Oeste","São Raimundo":"Oeste","Tarumã":"Oeste","Tarumã-Açu":"Oeste","Vila da Prata":"Oeste",
+  "Armando Mendes":"Leste","Colônia Antônio Aleixo":"Leste","Coroado":"Leste","Distrito Industrial II":"Leste","Gilberto Mestrinho":"Leste","Jorge Teixeira":"Leste","Mauazinho":"Leste","Puraquequara":"Leste","São José Operário":"Leste","Tancredo Neves":"Leste","Zumbi dos Palmares":"Leste",
+  "Cidade de Deus":"Norte","Cidade Nova":"Norte","Colônia Santo Antônio":"Norte","Colônia Terra Nova":"Norte","Lago Azul":"Norte","Monte das Oliveiras":"Norte","Nova Cidade":"Norte","Novo Aleixo":"Norte","Novo Israel":"Norte","Santa Etelvina":"Norte",
+  "Betânia":"Sul","Cachoeirinha":"Sul","Centro":"Sul","Colônia Oliveira Machado":"Sul","Crespo":"Sul","Distrito Industrial I":"Sul","Educandos":"Sul","Japiim":"Sul","Morro da Liberdade":"Sul","Nossa Senhora Aparecida":"Sul","Petrópolis":"Sul","Praça 14 de Janeiro":"Sul","Presidente Vargas":"Sul","Raiz":"Sul","Santa Luzia":"Sul","São Francisco":"Sul","São Geraldo":"Sul","São Lázaro":"Sul","Vila Buriti":"Sul"
 };
 
-// A lista abaixo é a base territorial de Manaus publicada pela Prefeitura/IMPLURB.
 export const MANAUS_NEIGHBORHOODS = Object.keys(MANAUS_ZONES).sort((a,b) => a.localeCompare(b, "pt-BR"));
 
-// Para os demais municípios, a interface deverá carregar uma base de bairros/localidades
-// validada antes da produção. Não foram inventados bairros para municípios sem fonte validada.
+// O IBGE registra 469 bairros no Amazonas no Censo 2022. O próprio IBGE ressalta
+// que nem todo município possui bairros legalmente instituídos. Por isso o campo
+// do sistema é "Bairro / Localidade". Onde ainda não temos uma lista municipal
+// validada, não inventamos nomes: usamos apenas opções neutras de localização.
 export const AMAZONAS_TERRITORIES = Object.fromEntries(
   AMAZONAS_MUNICIPALITIES.map((municipio) => [
     municipio,
-    municipio === "Manaus" ? MANAUS_NEIGHBORHOODS : ["Outro bairro/localidade"]
+    municipio === "Manaus" ? MANAUS_NEIGHBORHOODS : ["Centro", "Zona Rural / Localidade"]
   ])
 );
+
+export function getManausZone(neighborhood) {
+  return MANAUS_ZONES[neighborhood] || "";
+}
