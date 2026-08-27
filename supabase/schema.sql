@@ -18,6 +18,7 @@ create table if not exists public.admins (
   name text not null,
   cpf text not null unique,
   email text,
+  password_hash text not null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
