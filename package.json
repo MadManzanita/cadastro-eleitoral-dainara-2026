@@ -1,10 +1,10 @@
 {
   "name": "cadastro-eleitoral-dainara-2026",
   "private": true,
-  "version": "2.1.1",
+  "version": "2.1.2",
   "scripts": {
     "dev": "node scripts/patch-territory.cjs && next dev",
-    "build": "node scripts/patch-territory.cjs && next build",
+    "build": "node scripts/patch-territory.cjs && rm -rf .next && next build",
     "start": "next start"
   },
   "dependencies": {
