@@ -99,7 +99,7 @@ export async function POST(request) {
 
     return error("Ação inválida.", 404);
   } catch (cause) {
-    console.error("auth route diagnostic", JSON.stringify(cause, Object.getOwnPropertyNames(cause || {})));
+    console.error("auth route diagnostic", JSON.stringify({ name: cause?.name, message: cause?.message, code: cause?.code, status: cause?.status, details: cause?.details, hint: cause?.hint, keys: Object.keys(cause || {}) }));
     return error("Não foi possível concluir a operação.", 500);
   }
 }
