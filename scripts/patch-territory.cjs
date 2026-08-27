@@ -16,6 +16,23 @@ source = source.replace(
   'municipality: "", neighborhood: "", manausZone: "", cep:'
 );
 
+// Todos os dados cadastrais textuais são armazenados em CAIXA ALTA.
+// E-mail, senhas/códigos e campos numéricos não são alterados.
+const fieldStart = source.indexOf('function Field({');
+const fieldEnd = source.indexOf('\nfunction Form({', fieldStart);
+if (fieldStart >= 0 && fieldEnd >= 0) {
+  const fieldReplacement = [
+    'function Field({ f, setF, n, label, type = "text", required = false, placeholder }) {',
+    '  const numeric = ["cpf", "phone", "cep", "title", "zone", "section"].includes(n);',
+    '  const max = { cpf: 14, phone: 15, cep: 9, title: 12, zone: 5, section: 5 }[n];',
+    '  const upper = (v) => String(v || "").toLocaleUpperCase("pt-BR");',
+    '  const displayValue = numeric ? maskField(n, f[n]) : (f[n] || "");',
+    '  return <label className="field"><span>{label}{required ? " *" : ""}</span><input type={type} required={required} value={displayValue} placeholder={placeholder} maxLength={max} inputMode={numeric ? "numeric" : undefined} style={!numeric && type !== "email" && type !== "date" ? { textTransform: "uppercase" } : undefined} onChange={(e) => { let v = e.target.value; if (numeric) { const limits = { cpf: 11, phone: 11, cep: 8, title: 12, zone: 5, section: 5 }; v = digits(v).slice(0, limits[n]); } else if (type !== "email" && type !== "date") { v = upper(v); } setF((x) => ({ ...x, [n]: v })); }} /></label>;',
+    '}'
+  ].join('\n');
+  source = source.slice(0, fieldStart) + fieldReplacement + source.slice(fieldEnd);
+}
+
 const start = source.indexOf('function Form({');
 const end = source.indexOf('\nfunction Access', start);
 if (start < 0 || end < 0) throw new Error('Form block not found; territorial patch aborted');
@@ -53,13 +70,11 @@ const replacement = [
 
 source = source.slice(0, start) + replacement + source.slice(end);
 
-// Ficha detalhada: não usa mais "Bairro" isoladamente.
 source = source.replace(
   /<p><b>Bairro:<\/b> \{person\.neighborhood \|\| "—"\}<\/p>/,
   '<p><b>Município:</b> {person.municipality || "—"}</p><p><b>Bairro / localidade:</b> {person.neighborhood || "—"}</p>{person.municipality === "Manaus" && <p><b>Zona de Manaus:</b> {person.manausZone || getManausZone(person.neighborhood) || "—"}</p>}'
 );
 
-// Exportações: acrescenta os campos territoriais na mesma ordem usada no site.
 source = source.replace(
   '"E-mail","Bairro","CEP","Título de eleitor"',
   '"E-mail","Município","Bairro / localidade","Zona de Manaus","CEP","Título de eleitor"'
@@ -78,4 +93,4 @@ source = source.replace(
 );
 
 fs.writeFileSync(file, source);
-console.log('Territorial form patched successfully.');
+console.log('Territorial form and uppercase cadastral fields patched successfully.');
