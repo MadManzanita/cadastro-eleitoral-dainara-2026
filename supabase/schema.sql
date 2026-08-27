@@ -1,14 +1,22 @@
--- Estrutura de produção do Cadastro Eleitoral.
--- O protótipo atual ainda usa localStorage no navegador.
+-- Banco de dados de produção do Cadastro Eleitoral.
+-- Execute este arquivo uma única vez em um projeto Supabase novo.
 
 create extension if not exists pgcrypto;
 
-create table if not exists public.profiles (
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+create table if not exists public.admins (
   id uuid primary key default gen_random_uuid(),
-  auth_user_id uuid unique,
-  role text not null check (role in ('admin', 'leader')),
   name text not null,
-  cpf text unique not null,
+  cpf text not null unique,
   email text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -16,10 +24,9 @@ create table if not exists public.profiles (
 
 create table if not exists public.leaderships (
   id uuid primary key default gen_random_uuid(),
-  profile_id uuid references public.profiles(id) on delete set null,
   name text not null,
   birth date,
-  cpf text unique not null,
+  cpf text not null unique,
   phone text,
   address text,
   mother text,
@@ -27,11 +34,12 @@ create table if not exists public.leaderships (
   neighborhood text,
   cep text,
   title text,
-  zone text,
-  section text,
+  electoral_zone text,
+  electoral_section text,
   pix text,
   pix_name text,
   bank text,
+  password_hash text not null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -41,7 +49,7 @@ create table if not exists public.activists (
   leadership_id uuid not null references public.leaderships(id) on delete restrict,
   name text not null,
   birth date,
-  cpf text not null,
+  cpf text not null unique,
   phone text,
   address text,
   mother text,
@@ -49,12 +57,11 @@ create table if not exists public.activists (
   neighborhood text,
   cep text,
   title text,
-  zone text,
-  section text,
+  electoral_zone text,
+  electoral_section text,
   pix text,
   pix_name text,
   bank text,
-  family_token text unique,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -65,7 +72,7 @@ create table if not exists public.families (
   leadership_id uuid not null references public.leaderships(id) on delete restrict,
   name text not null,
   birth date,
-  cpf text unique not null,
+  cpf text not null unique,
   phone text,
   address text,
   mother text,
@@ -73,19 +80,52 @@ create table if not exists public.families (
   neighborhood text,
   cep text,
   title text,
-  zone text,
-  section text,
-  pix text,
-  pix_name text,
-  bank text,
+  electoral_zone text,
+  electoral_section text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.assessors (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  role text,
+  phone text,
+  email text,
+  notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 create index if not exists activists_leadership_id_idx on public.activists(leadership_id);
-create index if not exists activists_family_token_idx on public.activists(family_token);
-create index if not exists leaderships_name_idx on public.leaderships(name);
-create index if not exists activists_name_idx on public.activists(name);
 create index if not exists families_activist_id_idx on public.families(activist_id);
 create index if not exists families_leadership_id_idx on public.families(leadership_id);
-create index if not exists families_name_idx on public.families(name);
+create index if not exists leaderships_neighborhood_idx on public.leaderships(neighborhood);
+create index if not exists activists_neighborhood_idx on public.activists(neighborhood);
+create index if not exists families_neighborhood_idx on public.families(neighborhood);
+
+drop trigger if exists admins_updated_at on public.admins;
+create trigger admins_updated_at before update on public.admins
+for each row execute procedure public.set_updated_at();
+
+drop trigger if exists leaderships_updated_at on public.leaderships;
+create trigger leaderships_updated_at before update on public.leaderships
+for each row execute procedure public.set_updated_at();
+
+drop trigger if exists activists_updated_at on public.activists;
+create trigger activists_updated_at before update on public.activists
+for each row execute procedure public.set_updated_at();
+
+drop trigger if exists families_updated_at on public.families;
+create trigger families_updated_at before update on public.families
+for each row execute procedure public.set_updated_at();
+
+drop trigger if exists assessors_updated_at on public.assessors;
+create trigger assessors_updated_at before update on public.assessors
+for each row execute procedure public.set_updated_at();
+
+alter table public.admins enable row level security;
+alter table public.leaderships enable row level security;
+alter table public.activists enable row level security;
+alter table public.families enable row level security;
+alter table public.assessors enable row level security;
