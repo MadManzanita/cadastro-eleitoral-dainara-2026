@@ -53,9 +53,28 @@ const replacement = [
 
 source = source.slice(0, start) + replacement + source.slice(end);
 
+// Ficha detalhada: não usa mais "Bairro" isoladamente.
 source = source.replace(
   /<p><b>Bairro:<\/b> \{person\.neighborhood \|\| "—"\}<\/p>/,
   '<p><b>Município:</b> {person.municipality || "—"}</p><p><b>Bairro / localidade:</b> {person.neighborhood || "—"}</p>{person.municipality === "Manaus" && <p><b>Zona de Manaus:</b> {person.manausZone || getManausZone(person.neighborhood) || "—"}</p>}'
+);
+
+// Exportações: acrescenta os campos territoriais na mesma ordem usada no site.
+source = source.replace(
+  '"E-mail","Bairro","CEP","Título de eleitor"',
+  '"E-mail","Município","Bairro / localidade","Zona de Manaus","CEP","Título de eleitor"'
+);
+source = source.replace(
+  'l.email,l.neighborhood,cepBR(l.cep),l.title',
+  'l.email,l.municipality,l.neighborhood,l.manausZone || getManausZone(l.neighborhood),cepBR(l.cep),l.title'
+);
+source = source.replace(
+  '"E-mail","Bairro","CEP","Título de eleitor","Zona","Seção"',
+  '"E-mail","Município","Bairro / localidade","Zona de Manaus","CEP","Título de eleitor","Zona eleitoral","Seção"'
+);
+source = source.replace(
+  'a.email,a.neighborhood,cepBR(a.cep),a.title,a.zone,a.section',
+  'a.email,a.municipality,a.neighborhood,a.manausZone || getManausZone(a.neighborhood),cepBR(a.cep),a.title,a.zone,a.section'
 );
 
 fs.writeFileSync(file, source);
