@@ -82,14 +82,14 @@ function Access({ admin, release, cpf, setCpf, password, setPassword, code, setC
     <p>{release ? "Informe o código de liberação para continuar." : admin ? "Acesse usando o CPF do administrador cadastrado." : "Acesse usando o CPF da liderança e a senha gerada no cadastro."}</p>
     {release ? <label className="field"><span>Código de liberação</span><input autoFocus inputMode="numeric" maxLength={6} value={code} placeholder="000000" onChange={(e) => setCode(digits(e.target.value).slice(0, 6))} onKeyDown={(e) => e.key === "Enter" && onEnter()}/></label> : <>
       <label className="field"><span>CPF</span><input autoFocus inputMode="numeric" maxLength={14} value={cpfBR(cpf)} placeholder="000.000.000-00" onChange={(e) => setCpf(digits(e.target.value).slice(0, 11))} onKeyDown={(e) => e.key === "Enter" && onEnter()}/></label>
-      {admin ? <div className="login-hint"><span>Credencial</span><b>CPF do administrador cadastrado</b></div> : <label className="field"><span>Senha</span><input type="password" inputMode="numeric" maxLength={8} value={password} placeholder="Senha de 8 dígitos" onChange={(e) => setPassword(e.target.value.replace(/\D/g, "").slice(0, 8))} onKeyDown={(e) => e.key === "Enter" && onEnter()}/></label>}
+      <label className="field"><span>Senha</span><input type="password" minLength={8} value={password} placeholder={admin ? "Senha de administrador" : "Senha de acesso"} onChange={(e) => setPassword(admin ? e.target.value : e.target.value.replace(/\D/g, "").slice(0, 8))} onKeyDown={(e) => e.key === "Enter" && onEnter()}/></label>}
     </>}
     {msg && <div className="result">{msg}</div>}<button className="primary" onClick={onEnter}>{release ? "Continuar" : "Entrar"}</button>{release && <div className="auth-note">Código de teste: <b>328974</b></div>}<button className="link-button" onClick={onSwitch}>{release ? (admin ? "Voltar ao acesso administrativo" : "Já sou liderança") : (admin ? "Se tornar administrador" : "Se torne liderança")}</button>
   </section></main>;
 }
 
 function AdminReg({ back, save, msg }) {
-  return <main className="shell"><section className="card auth-card"><button className="back" onClick={back}>← Voltar</button><h2>Cadastro de administrador</h2><p>O acesso foi liberado pelo código 328974. Depois do cadastro, a entrada será feita somente com o CPF cadastrado.</p><form onSubmit={save}><label className="field"><span>Nome completo *</span><input name="name" required/></label><label className="field"><span>CPF *</span><input name="cpf" required maxLength={14} inputMode="numeric" placeholder="000.000.000-00" onChange={(e) => { e.currentTarget.value = cpfBR(e.currentTarget.value); }}/></label><label className="field"><span>E-mail</span><input name="email" type="email"/></label>{msg && <div className="result">{msg}</div>}<button className="primary">Concluir cadastro</button></form></section></main>;
+  return <main className="shell"><section className="card auth-card"><button className="back" onClick={back}>← Voltar</button><h2>Cadastro de administrador</h2><p>O acesso foi liberado pelo código 328974. Depois do cadastro, a entrada será feita somente com o CPF cadastrado.</p><form onSubmit={save}><label className="field"><span>Nome completo *</span><input name="name" required/></label><label className="field"><span>CPF *</span><input name="cpf" required maxLength={14} inputMode="numeric" placeholder="000.000.000-00" onChange={(e) => { e.currentTarget.value = cpfBR(e.currentTarget.value); }}/></label><label className="field"><span>E-mail</span><input name="email" type="email"/></label><label className="field"><span>Crie uma senha de administrador *</span><input name="password" type="password" required minLength={8} placeholder="Mínimo de 8 caracteres"/></label>{msg && <div className="result">{msg}</div>}<button className="primary">Concluir cadastro</button></form></section></main>;
 }
 
 function Credential({ person, password, onAccess, onBack }) {
@@ -229,18 +229,64 @@ export default function Portal() {
   useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { console.error(e); } }, [db]);
   useEffect(() => { try { if (mode === "leader-credentials" && !generatedPerson) { const raw = sessionStorage.getItem(`${KEY}-new-leadership`); if (raw) { const saved = JSON.parse(raw); setGeneratedPerson(saved.person || null); setGeneratedPassword(String(saved.password || saved.person?.password || "")); } } } catch (e) { console.error(e); } }, [mode, generatedPerson]);
 
+  const remote = async (path, options = {}) => {
+    const response = await fetch(path, { ...options, headers: { "Content-Type": "application/json", ...(options.headers || {}) } });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "Não foi possível concluir a operação.");
+    return payload;
+  };
+  const loadRemote = async () => {
+    const payload = await remote("/api/data");
+    setDb({ ...fresh(), ...payload.db });
+    return payload;
+  };
   const go = (next) => { setMode(next); setMsg(""); };
-  const logout = () => { setRole(null); setLeaderId(null); setCpf(""); setPassword(""); setCode(""); setSearch(""); setDetail(null); setView("dashboard"); go("home"); };
+  const logout = async () => {
+    try { await remote("/api/auth", { method: "POST", body: JSON.stringify({ action: "logout" }) }); } catch {}
+    setRole(null); setLeaderId(null); setCpf(""); setPassword(""); setCode(""); setSearch(""); setDetail(null); setView("dashboard"); go("home");
+  };
   const leader = db.leaderships.find((x) => x.id === leaderId), mine = db.activists.filter((x) => x.leaderId === leaderId);
   const leaders = useMemo(() => db.leaderships.filter((x) => `${x.name} ${x.cpf} ${x.title}`.toLowerCase().includes(search.toLowerCase())), [db.leaderships, search]);
   const acts = useMemo(() => db.activists.filter((x) => `${x.name} ${x.cpf} ${x.title}`.toLowerCase().includes(search.toLowerCase())), [db.activists, search]);
 
-  const enterAdmin = () => { if (!cpfOK(cpf)) return setMsg("Informe um CPF válido."); const a = db.admins.find((x) => digits(x.cpf) === digits(cpf)); if (!a) return setMsg("CPF não cadastrado como administrador."); setRole("admin"); setLeaderId(null); setView("dashboard"); go("admin-area"); };
-  const enterLeader = () => { if (!cpfOK(cpf)) return setMsg("Informe um CPF válido."); if (!password || password.length !== 8) return setMsg("Informe a senha de 8 dígitos gerada no cadastro."); const l = db.leaderships.find((x) => digits(x.cpf) === digits(cpf)); if (!l) return setMsg("CPF não cadastrado como liderança."); if (!l.password) return setMsg("Esta liderança ainda não possui senha."); if (String(l.password) !== String(password)) return setMsg("CPF ou senha incorretos."); setRole("leader"); setLeaderId(l.id); setView("dashboard"); go("leader-area"); };
-  const release = (admin) => { if (code !== CODE) return setMsg("Código inválido. Para o teste, use 328974."); setF(EMPTY); setEditing(null); setReturnTo(admin ? "admin-area" : "home"); go(admin ? "admin-reg" : "leader-reg"); };
+  const enterAdmin = async () => {
+    if (!cpfOK(cpf) || password.length < 8) return setMsg("Informe CPF e senha de administrador.");
+    try {
+      const logged = await remote("/api/auth", { method: "POST", body: JSON.stringify({ action: "login", role: "admin", cpf, password }) });
+      await loadRemote(); setRole("admin"); setLeaderId(null); setView("dashboard"); go("admin-area");
+    } catch (error) { setMsg(error.message); }
+  };
+  const enterLeader = async () => {
+    if (!cpfOK(cpf) || password.length !== 8) return setMsg("Informe CPF e a senha de 8 dígitos.");
+    try {
+      const logged = await remote("/api/auth", { method: "POST", body: JSON.stringify({ action: "login", role: "leader", cpf, password }) });
+      await loadRemote(); setRole("leader"); setLeaderId(logged.person.id); setView("dashboard"); go("leader-area");
+    } catch (error) { setMsg(error.message); }
+  };
+  const release = (admin) => { if (!admin && code !== CODE) return setMsg("Código inválido."); setF(EMPTY); setEditing(null); setReturnTo(admin ? "admin-area" : "home"); go(admin ? "admin-reg" : "leader-reg"); };
 
-  const saveLeader = (e) => { e.preventDefault(); if (!f.name.trim()) return setMsg("Informe o nome completo."); if (!cpfOK(f.cpf)) return setMsg("Informe um CPF válido."); if (!titleOK(f.title)) return setMsg("O título deve conter exatamente 12 dígitos."); const duplicate = db.leaderships.find((x) => digits(x.cpf) === digits(f.cpf) && x.id !== editing?.id); if (duplicate) return setMsg("Já existe uma liderança cadastrada com este CPF."); const isEditing = Boolean(editing), generated = editing?.password || makePassword(), x = { ...f, id: editing?.id || makeId(), password: generated, created: editing?.created || Date.now(), updated: Date.now() }; delete x._validation; setDb((d) => ({ ...d, leaderships: isEditing ? d.leaderships.map((a) => a.id === x.id ? x : a) : [...d.leaderships, x] })); setLeaderId(x.id); setEditing(null); setF(EMPTY); if (!isEditing) { try { sessionStorage.setItem(`${KEY}-new-leadership`, JSON.stringify({ person: x, password: generated })); } catch (err) { console.error(err); } setGeneratedPassword(generated); setGeneratedPerson(x); go("leader-credentials"); } else { setRole(returnTo === "admin-area" ? "admin" : "leader"); setView("dashboard"); go(returnTo); } };
-  const saveAct = (e) => { e.preventDefault(); if (!leaderId) return setMsg("Selecione uma liderança para vincular o ativista."); if (!f.name.trim()) return setMsg("Informe o nome completo."); if (!cpfOK(f.cpf)) return setMsg("Informe um CPF válido."); if (!titleOK(f.title)) return setMsg("O título deve conter exatamente 12 dígitos."); const duplicate = db.activists.find((x) => digits(x.cpf) === digits(f.cpf) && x.id !== editing?.id); if (duplicate) return setMsg("Já existe um ativista cadastrado com este CPF."); const x = { ...f, id: editing?.id || makeId(), leaderId, created: editing?.created || Date.now(), updated: Date.now() }; delete x._validation; setDb((d) => ({ ...d, activists: editing ? d.activists.map((a) => a.id === x.id ? x : a) : [...d.activists, x] })); setEditing(null); setF(EMPTY); setView("activists"); go(returnTo); };
+  const saveLeader = async (e) => {
+    e.preventDefault();
+    if (!f.name.trim() || !cpfOK(f.cpf) || !titleOK(f.title)) return setMsg("Confira nome, CPF e título de eleitor.");
+    try {
+      const result = await remote("/api/data", { method: "POST", body: JSON.stringify({ action: "save-leadership", ...f, id: editing?.id }) });
+      const x = result.item;
+      setDb((d) => ({ ...d, leaderships: editing ? d.leaderships.map((a) => a.id === x.id ? x : a) : [...d.leaderships, x] }));
+      setLeaderId(x.id); setEditing(null); setF(EMPTY);
+      if (!editing) { setGeneratedPerson(x); setGeneratedPassword(result.temporaryPassword || ""); go("leader-credentials"); }
+      else { setView("dashboard"); go(returnTo); }
+    } catch (error) { setMsg(error.message); }
+  };
+  const saveAct = async (e) => {
+    e.preventDefault();
+    if (!leaderId || !f.name.trim() || !cpfOK(f.cpf) || !titleOK(f.title)) return setMsg("Confira liderança, nome, CPF e título de eleitor.");
+    try {
+      const result = await remote("/api/data", { method: "POST", body: JSON.stringify({ action: "save-activist", ...f, id: editing?.id, leaderId }) });
+      const x = result.item;
+      setDb((d) => ({ ...d, activists: editing ? d.activists.map((a) => a.id === x.id ? x : a) : [...d.activists, x] }));
+      setEditing(null); setF(EMPTY); setView("activists"); go(returnTo);
+    } catch (error) { setMsg(error.message); }
+  };
   const startL = () => { setF(EMPTY); setEditing(null); setReturnTo(role === "admin" ? "admin-area" : "home"); go("leader-form"); };
   const startA = (lid = leaderId) => { setLeaderId(lid || null); setF(EMPTY); setEditing(null); setReturnTo(role === "admin" ? "admin-area" : "leader-area"); go("activist-form"); };
   const edit = (x, k) => { setF({ ...EMPTY, ...x }); setEditing(x); setLeaderId(x.leaderId || leaderId); setReturnTo(role === "admin" ? "admin-area" : "leader-area"); go(k === "leader" ? "leader-form" : "activist-form"); };
@@ -248,9 +294,29 @@ export default function Portal() {
   const startAssessor = () => { setEditingAssessor(null); setAssessorForm({ ...EMPTY_ASSESSOR }); setMsg(""); setAssessorEditorOpen(true); setView("assessors"); };
   const editAssessor = (a) => { setEditingAssessor(a); setAssessorForm({ ...EMPTY_ASSESSOR, ...a }); setAssessorEditorOpen(true); setMsg(""); };
   const cancelAssessor = () => { setEditingAssessor(null); setAssessorForm(EMPTY_ASSESSOR); setAssessorEditorOpen(false); };
-  const saveAssessor = (e) => { e.preventDefault(); if (!assessorForm.name.trim()) return setMsg("Informe o nome do contato da assessoria."); const item = { ...assessorForm, id: editingAssessor?.id || makeId(), created: editingAssessor?.created || Date.now(), updated: Date.now() }; setDb((d) => ({ ...d, assessors: editingAssessor ? d.assessors.map((a) => a.id === item.id ? item : a) : [...d.assessors, item] })); setMsg(editingAssessor ? "Contato da assessoria atualizado." : "Contato da assessoria adicionado."); cancelAssessor(); };
-  const removeAssessor = (id) => { if (!window.confirm("Excluir este contato da assessoria? Ele deixará de aparecer para as lideranças.")) return; setDb((d) => ({ ...d, assessors: d.assessors.filter((a) => a.id !== id) })); setMsg("Contato removido."); };
-  const saveAdmin = (e) => { e.preventDefault(); const fd = new FormData(e.currentTarget), name = String(fd.get("name") || "").trim(), adminCpf = digits(fd.get("cpf")), email = String(fd.get("email") || "").trim(); if (!name) return setMsg("Informe o nome completo."); if (!cpfOK(adminCpf)) return setMsg("Informe um CPF válido."); if (db.admins.some((x) => digits(x.cpf) === adminCpf)) return setMsg("Já existe um administrador cadastrado com este CPF."); const admin = { id: makeId(), name, cpf: adminCpf, email, created: Date.now() }; setDb((d) => ({ ...d, admins: [...d.admins, admin] })); setRole("admin"); setLeaderId(null); setView("dashboard"); go("admin-area"); };
+  const saveAssessor = async (e) => {
+    e.preventDefault();
+    if (!assessorForm.name.trim()) return setMsg("Informe o nome do contato da assessoria.");
+    try {
+      const result = await remote("/api/data", { method: "POST", body: JSON.stringify({ action: "save-assessor", ...assessorForm, id: editingAssessor?.id }) });
+      const item = result.item;
+      setDb((d) => ({ ...d, assessors: editingAssessor ? d.assessors.map((a) => a.id === item.id ? item : a) : [...d.assessors, item] }));
+      setMsg(editingAssessor ? "Contato da assessoria atualizado." : "Contato da assessoria adicionado."); cancelAssessor();
+    } catch (error) { setMsg(error.message); }
+  };
+  const removeAssessor = async (id) => {
+    if (!window.confirm("Excluir este contato da assessoria? Ele deixará de aparecer para as lideranças.")) return;
+    try { await remote("/api/data", { method: "POST", body: JSON.stringify({ action: "delete-assessor", id }) }); setDb((d) => ({ ...d, assessors: d.assessors.filter((a) => a.id !== id) })); setMsg("Contato removido."); }
+    catch (error) { setMsg(error.message); }
+  };
+  const saveAdmin = async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    try {
+      await remote("/api/auth", { method: "POST", body: JSON.stringify({ action: "setup-admin", setupCode: code, name: fd.get("name"), cpf: fd.get("cpf"), email: fd.get("email"), password: fd.get("password") }) });
+      await loadRemote(); setRole("admin"); setLeaderId(null); setView("dashboard"); go("admin-area");
+    } catch (error) { setMsg(error.message); }
+  };
 
   const exportExcel = async () => {
     try {
@@ -281,7 +347,7 @@ export default function Portal() {
 
   const exportCSV = () => { const h=["Liderança","Nome completo","Data de nascimento","CPF","Telefone","Endereço","Nome da mãe","E-mail","Bairro","CEP","Título de eleitor","Zona","Seção","Chave Pix","Titular Pix","Banco"];const rows=[];db.leaderships.forEach(l=>db.activists.filter(a=>a.leaderId===l.id).forEach(a=>rows.push([l.name,a.name,dateBR(a.birth),cpfBR(a.cpf),phoneBR(a.phone),a.address,a.mother,a.email,a.neighborhood,cepBR(a.cep),a.title,a.zone,a.section,a.pix,a.pixname,a.bank])));const csv=[h,...rows].map(r=>r.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(";")).join("\r\n");const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`cadastro-eleitoral-dainara-${new Date().toISOString().slice(0,10)}.csv`;a.click();URL.revokeObjectURL(url);setMsg("CSV exportado."); };
 
-  if(mode==="home") return <main className="shell"><section className="hero"><b>Cadastro Eleitoral</b><h1>Coordenadora Dainara Torres</h1><p>Portal de acesso, cadastro e gestão de lideranças e ativistas.</p><div className="actions"><button onClick={()=>go("leader-access")}>Já sou liderança</button><button onClick={()=>go("leader-release")}>Se torne liderança</button><button className="outline" onClick={()=>go("admin-access")}>Acesso administrativo</button><button className="outline" onClick={()=>go("admin-release")}>Se tornar administrador</button></div><div className="home-note">Dados persistidos neste navegador durante a fase de teste.</div></section></main>;
+  if(mode==="home") return <main className="shell"><section className="hero"><b>Cadastro Eleitoral</b><h1>Coordenadora Dainara Torres</h1><p>Portal de acesso, cadastro e gestão de lideranças e ativistas.</p><div className="actions"><button onClick={()=>go("leader-access")}>Já sou liderança</button><span className="home-note">Novas lideranças são cadastradas pela coordenação.</span><button className="outline" onClick={()=>go("admin-access")}>Acesso administrativo</button><button className="outline" onClick={()=>go("admin-release")}>Se tornar administrador</button></div><div className="home-note">Dados persistidos neste navegador durante a fase de teste.</div></section></main>;
   if(["leader-access","admin-access","leader-release","admin-release"].includes(mode)){const admin=mode.includes("admin"),rel=mode.includes("release");return <Access admin={admin} release={rel} cpf={cpf} setCpf={setCpf} password={password} setPassword={setPassword} code={code} setCode={setCode} msg={msg} onBack={()=>go("home")} onEnter={()=>rel?release(admin):(admin?enterAdmin():enterLeader())} onSwitch={()=>go(rel?(admin?"admin-access":"leader-access"):(admin?"admin-release":"leader-release"))}/>;}
   if(mode==="admin-reg") return <AdminReg back={()=>go("admin-area")} save={saveAdmin} msg={msg}/>;
   if(mode==="leader-reg") return <Form kind="liderança" f={f} setF={setF} save={saveLeader} back={()=>go(returnTo)} msg={msg} edit={Boolean(editing)} admin={false} leaderships={db.leaderships} leaderId={leaderId} setLeaderId={setLeaderId}/>;
