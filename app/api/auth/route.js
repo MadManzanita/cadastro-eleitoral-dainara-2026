@@ -99,7 +99,7 @@ export async function POST(request) {
 
     return error("Ação inválida.", 404);
   } catch (cause) {
-    console.error("auth route", cause);
+    console.error("auth route", cause?.message || String(cause), cause?.stack || "");
     return error("Não foi possível concluir a operação.", 500);
   }
 }
