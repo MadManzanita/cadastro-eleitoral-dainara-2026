@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MANAUS_ZONES } from "../data/territories";
 
-const CODE = "328974";
 const TSE = "https://www.tse.jus.br/servicos-eleitorais/autoatendimento-eleitoral";
 const KEY = "cadastro-eleitoral-dainara-2026-v9";
 const LEGACY_KEYS = ["cadastro-eleitoral-dainara-2026-v8"];
@@ -264,7 +263,7 @@ export default function Portal() {
       await loadRemote(); setRole("leader"); setLeaderId(logged.person.id); setView("dashboard"); go("leader-area");
     } catch (error) { setMsg(error.message); }
   };
-  const release = (admin) => { if (!admin && code !== CODE) return setMsg("Código inválido."); setF(EMPTY); setEditing(null); setReturnTo(admin ? "admin-area" : "home"); go(admin ? "admin-reg" : "leader-reg"); };
+  const release = (admin) => { setF(EMPTY); setEditing(null); setReturnTo(admin ? "admin-area" : "home"); go(admin ? "admin-reg" : "leader-reg"); };
 
   const saveLeader = async (e) => {
     e.preventDefault();
