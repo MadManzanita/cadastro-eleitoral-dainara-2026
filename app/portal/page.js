@@ -269,8 +269,9 @@ export default function Portal() {
     e.preventDefault();
     if (!f.name.trim() || !cpfOK(f.cpf) || !titleOK(f.title)) return setMsg("Confira nome, CPF e título de eleitor.");
     try {
-      const result = await remote("/api/data", { method: "POST", body: JSON.stringify({ action: "save-leadership", ...f, id: editing?.id }) });
-      const x = result.item;
+      const isAdmin = role === "admin";
+      const result = await remote(isAdmin ? "/api/data" : "/api/auth", { method: "POST", body: JSON.stringify(isAdmin ? { action: "save-leadership", ...f, id: editing?.id } : { action: "register-leadership", ...f, setupCode: code }) });
+      const x = result.item || result.person;
       setDb((d) => ({ ...d, leaderships: editing ? d.leaderships.map((a) => a.id === x.id ? x : a) : [...d.leaderships, x] }));
       setLeaderId(x.id); setEditing(null); setF(EMPTY);
       if (!editing) { setGeneratedPerson(x); setGeneratedPassword(result.temporaryPassword || ""); go("leader-credentials"); }
@@ -347,7 +348,7 @@ export default function Portal() {
 
   const exportCSV = () => { const h=["Liderança","Nome completo","Data de nascimento","CPF","Telefone","Endereço","Nome da mãe","E-mail","Bairro","CEP","Título de eleitor","Zona","Seção","Chave Pix","Titular Pix","Banco"];const rows=[];db.leaderships.forEach(l=>db.activists.filter(a=>a.leaderId===l.id).forEach(a=>rows.push([l.name,a.name,dateBR(a.birth),cpfBR(a.cpf),phoneBR(a.phone),a.address,a.mother,a.email,a.neighborhood,cepBR(a.cep),a.title,a.zone,a.section,a.pix,a.pixname,a.bank])));const csv=[h,...rows].map(r=>r.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(";")).join("\r\n");const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`cadastro-eleitoral-dainara-${new Date().toISOString().slice(0,10)}.csv`;a.click();URL.revokeObjectURL(url);setMsg("CSV exportado."); };
 
-  if(mode==="home") return <main className="shell"><section className="hero"><b>Cadastro Eleitoral</b><h1>Coordenadora Dainara Torres</h1><p>Portal de acesso, cadastro e gestão de lideranças e ativistas.</p><div className="actions"><button onClick={()=>go("leader-access")}>Já sou liderança</button><span className="home-note">Novas lideranças são cadastradas pela coordenação.</span><button className="outline" onClick={()=>go("admin-access")}>Acesso administrativo</button><button className="outline" onClick={()=>go("admin-release")}>Se tornar administrador</button></div><div className="home-note">Dados persistidos neste navegador durante a fase de teste.</div></section></main>;
+  if(mode==="home") return <main className="shell"><section className="hero"><b>Cadastro Eleitoral</b><h1>Coordenadora Dainara Torres</h1><p>Portal de acesso, cadastro e gestão de lideranças e ativistas.</p><div className="actions"><button onClick={()=>go("leader-access")}>Já sou liderança</button><button onClick={()=>go("leader-release")}>Se torne liderança</button><button className="outline" onClick={()=>go("admin-access")}>Acesso administrativo</button><button className="outline" onClick={()=>go("admin-release")}>Se tornar administrador</button></div><div className="home-note">Cadastros protegidos e armazenados no sistema.</div></section></main>;
   if(["leader-access","admin-access","leader-release","admin-release"].includes(mode)){const admin=mode.includes("admin"),rel=mode.includes("release");return <Access admin={admin} release={rel} cpf={cpf} setCpf={setCpf} password={password} setPassword={setPassword} code={code} setCode={setCode} msg={msg} onBack={()=>go("home")} onEnter={()=>rel?release(admin):(admin?enterAdmin():enterLeader())} onSwitch={()=>go(rel?(admin?"admin-access":"leader-access"):(admin?"admin-release":"leader-release"))}/>;}
   if(mode==="admin-reg") return <AdminReg back={()=>go("admin-area")} save={saveAdmin} msg={msg}/>;
   if(mode==="leader-reg") return <Form kind="liderança" f={f} setF={setF} save={saveLeader} back={()=>go(returnTo)} msg={msg} edit={Boolean(editing)} admin={false} leaderships={db.leaderships} leaderId={leaderId} setLeaderId={setLeaderId}/>;
