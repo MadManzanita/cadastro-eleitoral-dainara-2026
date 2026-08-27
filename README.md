@@ -31,6 +31,17 @@ O mesmo código libera:
 - Edição dos próprios ativistas.
 - Contatos da assessoria da coordenadora.
 - Resumo da equipe.
+- Acesso à Rede de confiança.
+
+### Rede de confiança / Família
+- Rota pública `/familia` para iniciar o cadastro da rede de confiança.
+- O conceito de Família representa as pessoas que têm o voto de confiança do ativista, e não necessariamente parentes.
+- O ativista é reconhecido pelo CPF.
+- O acesso de teste usa código temporário de 6 dígitos; em produção será integrado ao SMSGo.
+- Cada ativista pode gerar um link individual de sua rede de confiança.
+- O cadastro da pessoa fica vinculado ao ativista e à liderança responsável.
+- Dados cadastrais são convertidos para CAIXA ALTA.
+- O schema de produção já possui a estrutura para `families` e `family_token`.
 
 ### Administrador
 - Dashboard com total de lideranças, ativistas e equipes.
@@ -49,18 +60,21 @@ O mesmo código libera:
 ### Formulários
 - Dados pessoais.
 - Dados eleitorais.
+- Título de eleitor com exatamente 12 dígitos.
 - Dados de pagamento.
 - Validação matemática de CPF.
-- Validação estrutural do título com exatamente 8 dígitos.
 - Link “Consultar situação no TSE” somente nos formulários de liderança/ativista.
 - O sistema não considera um título estruturalmente válido como situação eleitoral regular.
+- Campos cadastrais em CAIXA ALTA.
 
 ### Persistência de teste
 Os dados ficam salvos no `localStorage` do navegador. Isso permite testar o fluxo sem Supabase.
 
 ## Produção
 
-A pasta `supabase/` contém o schema inicial para a próxima etapa: autenticação real, banco centralizado, permissões por perfil, RLS, backups e persistência em nuvem.
+A pasta `supabase/` contém o schema inicial para a próxima etapa: autenticação real, banco centralizado, permissões por perfil, RLS, backups, persistência em nuvem e rede de confiança.
+
+A integração de SMS continuará prevista para o SMSGo, com códigos temporários gerados no servidor.
 
 Não coloque chaves secretas no código público. Use as variáveis de ambiente da Vercel.
 
