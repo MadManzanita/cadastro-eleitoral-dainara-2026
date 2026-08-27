@@ -120,21 +120,68 @@ function Detail({ person, title, leader, onBack, onEdit, team, credential }) {
 
 
 const MANAUS_MAP_ZONES = [
-  { name: "Norte", path: "M535 53 C548 45 556 47 562 66 L566 126 L589 121 L598 150 L609 151 L620 121 L640 80 L684 51 L694 22 L719 20 L730 24 L733 49 L746 86 L754 134 L769 147 L797 148 L801 170 L799 183 L814 205 L846 238 L859 291 L886 343 L895 396 L909 428 L899 453 L912 472 L913 512 L892 535 L890 576 L862 580 L856 536 L818 536 L802 518 L766 510 L728 501 L684 496 L632 495 L587 508 L565 553 L534 553 L525 514 L526 478 L516 455 L516 417 L499 407 L493 367 L523 333 L538 303 L562 280 L577 250 L558 222 L546 205 L545 155 L548 128 L542 97 Z", label: [699,303] },
-  { name: "Leste", path: "M895 344 L1164 302 L1167 288 L1196 278 L1213 280 L1226 292 L1242 294 L1254 281 L1282 278 L1303 277 L1320 286 L1337 277 L1352 282 L1362 302 L1352 315 L1345 335 L1359 337 L1354 354 L1340 358 L1351 369 L1334 379 L1348 394 L1337 402 L1352 415 L1341 431 L1355 445 L1343 460 L1358 474 L1344 491 L1345 519 L1334 540 L1322 552 L1317 571 L1299 585 L1285 604 L1268 618 L1250 639 L1220 661 L1204 693 L1182 709 L1166 734 L1149 758 L1130 772 L1109 795 L1082 811 L1058 835 L1025 850 L1005 876 L975 887 L958 914 L936 907 L926 882 L929 844 L936 812 L930 780 L946 752 L966 740 L978 718 L996 706 L998 678 L981 655 L962 638 L948 618 L927 609 L913 586 L890 576 L892 535 L913 512 L912 472 L899 453 L909 428 L895 396 Z", label: [1117,551] },
-  { name: "Sul", path: "M516 812 L537 820 L550 842 L568 837 L580 850 L598 845 L608 859 L629 848 L648 858 L674 850 L698 859 L718 870 L738 881 L761 889 L783 906 L810 917 L824 931 L845 944 L861 956 L879 963 L891 950 L893 974 L881 985 L869 1003 L879 1017 L864 1029 L842 1025 L821 1013 L799 1008 L777 992 L754 982 L731 966 L710 958 L688 943 L665 934 L646 919 L624 910 L607 897 L585 885 L568 872 L550 858 L529 844 Z", label: [792,886] },
-  { name: "Centro-Sul", path: "M516 702 L548 698 L577 698 L606 684 L635 692 L668 676 L701 682 L723 696 L742 712 L766 720 L786 709 L812 722 L829 750 L854 758 L870 770 L889 775 L911 798 L928 817 L936 844 L929 844 L926 882 L905 884 L891 865 L870 863 L851 872 L826 867 L800 872 L781 861 L759 873 L738 866 L717 876 L698 859 L674 850 L648 858 L629 848 L608 859 L598 845 L580 850 L568 837 L550 842 L537 820 L516 812 L502 793 Z", label: [687,757] },
-  { name: "Centro-Oeste", path: "M534 553 L587 508 L632 495 L684 496 L728 501 L766 510 L802 518 L818 536 L856 536 L862 580 L890 576 L913 586 L927 609 L948 618 L962 638 L981 655 L998 678 L996 706 L978 718 L966 740 L946 752 L928 817 L911 798 L889 775 L870 770 L854 758 L829 750 L812 722 L786 709 L766 720 L742 712 L723 696 L701 682 L668 676 L635 692 L606 684 L577 698 L548 698 L516 702 L506 678 L527 654 L534 623 L518 599 Z", label: [704,605] },
-  { name: "Oeste", path: "M230 143 L245 149 L257 144 L268 151 L285 154 L304 149 L319 145 L336 149 L349 145 L365 151 L382 147 L399 151 L418 142 L433 129 L449 128 L460 115 L481 112 L488 101 L505 96 L516 83 L535 71 L542 97 L548 128 L545 155 L546 205 L558 222 L577 250 L562 280 L538 303 L523 333 L499 367 L493 407 L516 417 L516 455 L526 478 L525 514 L534 553 L518 599 L534 623 L527 654 L506 678 L516 702 L502 793 L516 812 L529 844 L516 861 L498 856 L486 842 L470 835 L453 820 L437 814 L425 800 L406 792 L389 777 L372 766 L354 752 L339 736 L324 720 L310 704 L297 690 L283 678 L269 665 L257 647 L244 630 L231 612 L220 590 L208 570 L195 552 L182 530 L172 511 L160 491 L148 471 L139 450 L128 433 L117 410 L105 391 L91 373 L79 353 L62 341 L55 321 L49 302 L38 287 L29 272 L30 250 L39 229 L45 209 L45 189 L40 171 L46 156 L64 145 L81 149 L100 153 L118 151 L135 144 L154 150 L172 144 L188 150 L207 146 Z", label: [389,471] }
+  {
+    name: "Oeste",
+    path: "M205 192 L258 184 L315 170 L378 145 L438 103 L491 69 L530 56 L543 123 L545 176 L564 207 L573 262 L555 311 L520 351 L494 400 L506 441 L500 501 L479 548 L474 617 L481 674 L464 725 L480 774 L463 827 L437 812 L407 790 L368 766 L334 735 L303 693 L275 649 L246 602 L221 548 L196 505 L169 468 L152 421 L133 383 L143 332 L169 287 L179 238 Z",
+    label: [333, 430]
+  },
+  {
+    name: "Norte",
+    path: "M530 56 L569 48 L611 23 L654 18 L682 46 L692 103 L706 141 L734 151 L751 201 L785 233 L809 283 L845 315 L866 367 L892 420 L904 479 L895 530 L902 576 L874 608 L857 555 L812 535 L775 501 L727 479 L675 475 L618 468 L559 486 L506 441 L494 400 L520 351 L555 311 L573 262 L564 207 L545 176 L543 123 Z",
+    label: [677, 266]
+  },
+  {
+    name: "Leste",
+    path: "M904 369 L1124 333 L1282 303 L1356 315 L1372 352 L1354 395 L1375 435 L1362 483 L1373 532 L1352 574 L1331 617 L1292 651 L1264 696 L1216 721 L1177 761 L1128 781 L1085 815 L1025 829 L980 866 L938 879 L915 842 L925 797 L914 752 L931 708 L956 670 L945 630 L902 576 L895 530 L904 479 L892 420 Z",
+    label: [1160, 526]
+  },
+  {
+    name: "Centro-Oeste",
+    path: "M506 441 L559 486 L618 468 L675 475 L727 479 L775 501 L812 535 L857 555 L874 608 L901 626 L930 673 L941 719 L918 754 L875 754 L841 730 L789 724 L751 698 L698 688 L649 678 L599 687 L547 704 L501 692 L482 652 L493 610 L479 548 L500 501 Z",
+    label: [690, 607]
+  },
+  {
+    name: "Centro-Sul",
+    path: "M501 692 L547 704 L599 687 L649 678 L698 688 L751 698 L789 724 L841 730 L875 754 L918 754 L939 798 L921 842 L893 874 L849 881 L806 899 L752 896 L706 910 L654 900 L607 912 L560 895 L521 872 L482 852 L464 825 L480 774 L464 725 Z",
+    label: [685, 792]
+  },
+  {
+    name: "Sul",
+    path: "M464 825 L482 852 L521 872 L560 895 L607 912 L654 900 L706 910 L752 896 L806 899 L849 881 L893 874 L921 842 L938 879 L957 908 L955 949 L931 983 L900 1005 L858 1019 L813 1034 L762 1026 L720 1005 L680 983 L632 971 L590 946 L550 924 L509 903 L480 874 Z",
+    label: [735, 955]
+  }
 ];
 
 function ManausCoverageMap({ db }) {
   const [hovered, setHovered] = useState(null);
   const allPeople = [...(db.leaderships || []), ...(db.activists || []), ...(db.families || [])];
-  const counts = Object.fromEntries(MANAUS_MAP_ZONES.map(({ name }) => [name, allPeople.filter((person) => MANAUS_ZONES[person.neighborhood] === name).length]));
-  const color = (count) => count === 0 ? "#fff" : count <= 10 ? "#fde1eb" : count <= 50 ? "#ee9ab5" : "#c54672";
+  const counts = Object.fromEntries(MANAUS_MAP_ZONES.map(({ name }) => [
+    name,
+    allPeople.filter((person) => MANAUS_ZONES[person.neighborhood] === name).length
+  ]));
+  const color = (count, isActive) => {
+    if (!count) return isActive ? "#fff2f7" : "#fff";
+    if (count <= 10) return isActive ? "#f9c5d7" : "#fde1eb";
+    if (count <= 50) return isActive ? "#df6d97" : "#ee9ab5";
+    return isActive ? "#a72856" : "#c54672";
+  };
   const active = MANAUS_MAP_ZONES.find((zone) => zone.name === hovered);
-  return <section className="panel"><div className="page-head"><div><h2>Mapa de cadastros por zona</h2><p>Manaus — bairros oficiais por zona administrativa.</p></div></div><div style={{position:"relative",maxWidth:760,margin:"12px auto 0"}}><svg viewBox="0 0 1492 1054" role="img" aria-label="Mapa interativo das zonas de Manaus" style={{width:"100%",display:"block",filter:"drop-shadow(0 8px 14px rgba(157,91,116,.10))",background:"#fff",borderRadius:16}}>{MANAUS_MAP_ZONES.map((zone) => <g key={zone.name} onMouseEnter={() => setHovered(zone.name)} onMouseLeave={() => setHovered(null)} style={{cursor:"default"}}><path d={zone.path} fill={color(counts[zone.name])} stroke={hovered === zone.name ? "#9f4d69" : "#8d6573"} strokeWidth={hovered === zone.name ? 7 : 3} style={{transition:"fill .18s, stroke .18s"}}/><text x={zone.label[0]} y={zone.label[1]} textAnchor="middle" fontSize="32" fontWeight="800" fill="#49383f">{zone.name}</text></g>)}</svg>{active && <div role="status" style={{position:"absolute",left:"50%",bottom:12,transform:"translateX(-50%)",background:"#49383f",color:"#fff",padding:"10px 14px",borderRadius:10,fontWeight:800,boxShadow:"0 8px 20px rgba(0,0,0,.16)",whiteSpace:"nowrap"}}>{active.name}: {counts[active.name]} cadastro(s)</div>}</div><div style={{display:"flex",gap:12,flexWrap:"wrap",marginTop:16,fontSize:13,color:"#6d5961"}}><span><i style={{display:"inline-block",width:12,height:12,borderRadius:3,background:"#fff",border:"1px solid #d9bcc7",marginRight:5}}/>0</span><span><i style={{display:"inline-block",width:12,height:12,borderRadius:3,background:"#fde1eb",marginRight:5}}/>1–10</span><span><i style={{display:"inline-block",width:12,height:12,borderRadius:3,background:"#ee9ab5",marginRight:5}}/>11–50</span><span><i style={{display:"inline-block",width:12,height:12,borderRadius:3,background:"#c54672",marginRight:5}}/>51–100</span></div></section>;
+
+  return <section className="panel">
+    <div className="page-head"><div><h2>Mapa de cadastros por zona</h2><p>Manaus — bairros oficiais por zona administrativa.</p></div></div>
+    <div style={{ position: "relative", maxWidth: 860, margin: "12px auto 0" }}>
+      <svg viewBox="80 0 1360 1054" role="img" aria-label="Mapa interativo das zonas de Manaus" style={{ width: "100%", display: "block", background: "#fff", borderRadius: 16, filter: "drop-shadow(0 8px 14px rgba(157,91,116,.10))" }}>
+        {MANAUS_MAP_ZONES.map((zone) => <g key={zone.name} onMouseEnter={() => setHovered(zone.name)} onMouseLeave={() => setHovered(null)} style={{ cursor: "default" }}>
+          <path d={zone.path} fill={color(counts[zone.name], hovered === zone.name)} stroke={hovered === zone.name ? "#a72856" : "#c10c4d"} strokeWidth={hovered === zone.name ? 7 : 4} strokeLinejoin="round" style={{ transition: "fill .18s, stroke .18s" }} />
+          <text x={zone.label[0]} y={zone.label[1]} textAnchor="middle" fontSize="34" fontWeight="800" fill="#a20a43" style={{ pointerEvents: "none" }}>{`Zona ${zone.name}`}</text>
+        </g>)}
+      </svg>
+      {active && <div role="status" style={{ position: "absolute", left: "50%", bottom: 14, transform: "translateX(-50%)", background: "#49383f", color: "#fff", padding: "10px 14px", borderRadius: 10, fontWeight: 800, boxShadow: "0 8px 20px rgba(0,0,0,.16)", whiteSpace: "nowrap" }}>{active.name}: {counts[active.name]} cadastro(s)</div>}
+    </div>
+    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 14, fontSize: 13, color: "#765665" }}>
+      {[["0", "#fff"], ["1–10", "#fde1eb"], ["11–50", "#ee9ab5"], ["51–100", "#c54672"]].map(([label, swatch]) => <span key={label} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><i style={{ width: 11, height: 11, display: "inline-block", borderRadius: 3, background: swatch, border: "1px solid #e7a9bf" }} /> {label}</span>)}
+    </div>
+  </section>;
 }
 
 function Side({ admin, view, setView, logout, newL, newA, exportExcel, exportCSV }) {
