@@ -60,3 +60,77 @@ export async function GET(request) {
     return fail("Não foi possível carregar os dados.", 500);
   }
 }
+
+
+function fields(body) {
+  return {
+    name: String(body.name || "").trim(), birth: body.birth || null, cpf: String(body.cpf || "").replace(/\D/g, ""),
+    phone: body.phone || null, address: body.address || null, mother: body.mother || null, email: body.email || null,
+    neighborhood: body.neighborhood || null, cep: body.cep || null, title: body.title || null,
+    electoral_zone: body.zone || null, electoral_section: body.section || null,
+    pix: body.pix || null, pix_name: body.pixname || null, bank: body.bank || null
+  };
+}
+
+export async function POST(request) {
+  try {
+    const session = sessionFromRequest(request);
+    if (!session) return fail("Faça login para continuar.", 401);
+    const body = await request.json();
+    const db = supabaseAdmin();
+
+    if (body.action === "save-leadership") {
+      if (session.role !== "admin") return fail("Somente a coordenação pode cadastrar lideranças.", 403);
+      const values = fields(body);
+      if (!values.name || values.cpf.length !== 11) return fail("Informe nome e CPF válidos.");
+      if (body.id) {
+        const { data, error } = await db.from("leaderships").update(values).eq("id", body.id).select("*").single();
+        if (error) throw error;
+        return NextResponse.json({ item: leadership(data) });
+      }
+      const temporaryPassword = String(Math.floor(10000000 + Math.random() * 90000000));
+      const { hashPassword } = await import("../../../lib/server-auth");
+      const { data, error } = await db.from("leaderships").insert({ ...values, password_hash: hashPassword(temporaryPassword) }).select("*").single();
+      if (error) throw error;
+      return NextResponse.json({ item: leadership(data), temporaryPassword }, { status: 201 });
+    }
+
+    if (body.action === "save-activist") {
+      const values = fields(body);
+      const leadershipId = session.role === "admin" ? body.leaderId : session.id;
+      if (!leadershipId || !values.name || values.cpf.length !== 11) return fail("Informe liderança, nome e CPF válidos.");
+      if (body.id) {
+        const { data, error } = await db.from("activists").update({ ...values, leadership_id: leadershipId }).eq("id", body.id).select("*").single();
+        if (error) throw error;
+        return NextResponse.json({ item: activist(data) });
+      }
+      const { data, error } = await db.from("activists").insert({ ...values, leadership_id: leadershipId }).select("*").single();
+      if (error) throw error;
+      return NextResponse.json({ item: activist(data) }, { status: 201 });
+    }
+
+    if (body.action === "save-assessor") {
+      if (session.role !== "admin") return fail("Acesso não autorizado.", 403);
+      const values = { name: String(body.name || "").trim(), role: body.role || null, phone: body.phone || null, email: body.email || null, notes: body.notes || null };
+      if (!values.name) return fail("Informe o nome do contato.");
+      const query = body.id
+        ? db.from("assessors").update(values).eq("id", body.id)
+        : db.from("assessors").insert(values);
+      const { data, error } = await query.select("*").single();
+      if (error) throw error;
+      return NextResponse.json({ item: assessor(data) }, { status: body.id ? 200 : 201 });
+    }
+
+    if (body.action === "delete-assessor") {
+      if (session.role !== "admin") return fail("Acesso não autorizado.", 403);
+      const { error } = await db.from("assessors").delete().eq("id", body.id);
+      if (error) throw error;
+      return NextResponse.json({ ok: true });
+    }
+
+    return fail("Ação inválida.", 404);
+  } catch (cause) {
+    console.error("data write route", cause);
+    return fail("Não foi possível salvar os dados.", 500);
+  }
+}
