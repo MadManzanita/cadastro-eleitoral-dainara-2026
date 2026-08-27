@@ -52,19 +52,21 @@ export async function POST(request) {
     if (action === "setup-admin") {
       const setupCode = String(body.setupCode || "");
       if (!process.env.ADMIN_SETUP_CODE || !cryptoSafeEqual(setupCode, process.env.ADMIN_SETUP_CODE)) return error("Código de configuração inválido.", 403);
-      stage = "verificação de administradores";
-      const { count, error: countError } = await db.from("admins").select("*", { count: "exact", head: true });
-      if (countError) throw countError;
-      if (count) return error("Já existe um administrador. Use o acesso administrativo.", 409);
-
       const cpf = normalizeCpf(body.cpf);
       const name = String(body.name || "").trim();
       const email = String(body.email || "").trim() || null;
       if (!name || cpf.length !== 11) return error("Informe nome e CPF válidos.");
+      stage = "verificação de administradores";
+      const { data: existing, error: lookupError } = await db.from("admins").select("id,password_hash").eq("cpf", cpf).maybeSingle();
+      if (lookupError) throw lookupError;
+      if (existing?.password_hash) return error("Já existe um administrador. Use o acesso administrativo.", 409);
       stage = "proteção da senha";
       const passwordHash = hashPassword(String(body.password || ""));
       stage = "gravação do administrador";
-      const { data, error: insertError } = await db.from("admins").insert({ name, cpf, email, password_hash: passwordHash }).select("*").single();
+      const saved = existing
+        ? await db.from("admins").update({ name, email, password_hash: passwordHash }).eq("id", existing.id).select("*").single()
+        : await db.from("admins").insert({ name, cpf, email, password_hash: passwordHash }).select("*").single();
+      const { data, error: insertError } = saved;
       if (insertError) throw insertError;
 
       stage = "criação da sessão";
