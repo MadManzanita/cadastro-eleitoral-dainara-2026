@@ -134,6 +134,7 @@ const MANAUS_MAP_ZONES = [
 function ManausCoverageMap({ db }) {
   const canvasRef = useRef(null);
   const imageRef = useRef(null);
+  const maskRef = useRef(null);
   const [hovered, setHovered] = useState(null);
   const allPeople = [...(db.leaderships || []), ...(db.activists || []), ...(db.families || [])];
   const counts = Object.fromEntries(MANAUS_MAP_ZONES.map(({ name }) => [
@@ -182,6 +183,7 @@ function ManausCoverageMap({ db }) {
         if (y < MANAUS_MAP_HEIGHT - 1) stack.push(position + MANAUS_MAP_WIDTH);
       }
     });
+    maskRef.current = claimed;
     context.putImageData(imageData, 0, 0);
   };
 
@@ -198,22 +200,10 @@ function ManausCoverageMap({ db }) {
     const bounds = event.currentTarget.getBoundingClientRect();
     const x = Math.floor((event.clientX - bounds.left) * MANAUS_MAP_WIDTH / bounds.width);
     const y = Math.floor((event.clientY - bounds.top) * MANAUS_MAP_HEIGHT / bounds.height);
-    const canvas = canvasRef.current;
-    if (!canvas || x < 0 || y < 0 || x >= MANAUS_MAP_WIDTH || y >= MANAUS_MAP_HEIGHT) return null;
-    const pixel = canvas.getContext("2d").getImageData(x, y, 1, 1).data;
-    const colors = [
-      { zone: "Oeste", seed: [140, 156] }, { zone: "Norte", seed: [235, 100] },
-      { zone: "Leste", seed: [375, 180] }, { zone: "Centro-Oeste", seed: [235, 195] },
-      { zone: "Centro-Sul", seed: [235, 254] }, { zone: "Sul", seed: [268, 295] }
-    ];
-    let closest = null;
-    let distance = Infinity;
-    colors.forEach((candidate) => {
-      const dx = x - candidate.seed[0], dy = y - candidate.seed[1];
-      const value = dx * dx + dy * dy;
-      if (value < distance) { distance = value; closest = candidate.zone; }
-    });
-    return pixel[0] > 225 && pixel[1] > 225 && pixel[2] > 225 ? closest : closest;
+    const mask = maskRef.current;
+    if (!mask || x < 0 || y < 0 || x >= MANAUS_MAP_WIDTH || y >= MANAUS_MAP_HEIGHT) return null;
+    const zoneIndex = mask[y * MANAUS_MAP_WIDTH + x] - 1;
+    return zoneIndex >= 0 ? MANAUS_MAP_ZONES[zoneIndex].name : null;
   };
 
   return <section className="panel">
