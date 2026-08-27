@@ -8,20 +8,26 @@ if (!source.includes('app/data/territories')) {
   source = source.replace('"use client";', '"use client";\nimport { AMAZONAS_MUNICIPALITIES, AMAZONAS_TERRITORIES, getManausZone } from "../data/territories";');
 }
 
+// Mantém os novos campos territoriais presentes também em novos registros e migrações locais.
+source = source.replace(
+  /neighborhood: "", cep:/,
+  'municipality: "", neighborhood: "", manausZone: "", cep:'
+);
+
 const replacement = String.raw`function TerritoryFields({ f, setF }) {
   const municipality = f.municipality || "";
   const neighborhoods = municipality ? (AMAZONAS_TERRITORIES[municipality] || []) : [];
   const isManaus = municipality === "Manaus";
-  const zone = isManaus ? getManausZone(f.neighborhood || "") : "";
+  const manausZone = isManaus ? getManausZone(f.neighborhood || "") : "";
 
   return <>
     <h3>Localização territorial</h3>
     <div className="form-grid three">
-      <label className="field"><span>Município *</span><select required value={municipality} onChange={(e) => setF((x) => ({ ...x, municipality: e.target.value, neighborhood: "", zone: "" }))}><option value="">Selecione o município</option>{AMAZONAS_MUNICIPALITIES.map((m) => <option key={m} value={m}>{m}</option>)}</select></label>
-      <label className="field"><span>Bairro / localidade *</span><select required disabled={!municipality} value={f.neighborhood || ""} onChange={(e) => setF((x) => ({ ...x, neighborhood: e.target.value, zone: municipality === "Manaus" ? getManausZone(e.target.value) : "" }))}><option value="">{municipality ? "Selecione o bairro/localidade" : "Selecione primeiro o município"}</option>{neighborhoods.map((b) => <option key={b} value={b}>{b}</option>)}</select></label>
-      <label className="field"><span>Zona de Manaus</span><input readOnly value={zone} placeholder={isManaus ? "Detectada automaticamente" : "Somente para Manaus"}/></label>
+      <label className="field"><span>Município *</span><select required value={municipality} onChange={(e) => setF((x) => ({ ...x, municipality: e.target.value, neighborhood: "", manausZone: "" }))}><option value="">Selecione o município</option>{AMAZONAS_MUNICIPALITIES.map((m) => <option key={m} value={m}>{m}</option>)}</select></label>
+      <label className="field"><span>Bairro / localidade *</span><select required disabled={!municipality} value={f.neighborhood || ""} onChange={(e) => setF((x) => ({ ...x, neighborhood: e.target.value, manausZone: municipality === "Manaus" ? getManausZone(e.target.value) : "" }))}><option value="">{municipality ? "Selecione o bairro/localidade" : "Selecione primeiro o município"}</option>{neighborhoods.map((b) => <option key={b} value={b}>{b}</option>)}</select></label>
+      <label className="field"><span>Zona de Manaus</span><input readOnly value={manausZone} placeholder={isManaus ? "Detectada automaticamente" : "Somente para Manaus"}/></label>
     </div>
-    {municipality !== "Manaus" && <div className="territory-note">Para municípios do interior, o campo utiliza a categoria <b>Bairro / localidade</b>. O IBGE registra 469 bairros no Amazonas no Censo 2022, mas nem todo município possui bairros legalmente instituídos; por isso o sistema não inventa denominações.</div>}
+    {municipality !== "Manaus" && <div className="territory-note">Para municípios do interior, o campo utiliza a categoria <b>Bairro / localidade</b>. A base territorial usa os dados do Censo 2022 como referência; quando não há bairro legalmente instituído ou lista municipal validada, o sistema não inventa denominações e mantém opções neutras como Centro e Zona Rural / Localidade.</div>}
   </>;
 }
 
@@ -43,7 +49,10 @@ const formPattern = /function Form\([\s\S]*?\n}\n\nfunction Access/;
 if (!formPattern.test(source)) throw new Error('Form function not found; patch aborted');
 source = source.replace(formPattern, replacement);
 
-source = source.replace(/<p><b>Bairro:<\/b> \{person\.neighborhood \|\| "—"\}<\/p>/, '<p><b>Município:</b> {person.municipality || "—"}</p><p><b>Bairro / localidade:</b> {person.neighborhood || "—"}</p>{person.municipality === "Manaus" && <p><b>Zona de Manaus:</b> {person.zone || getManausZone(person.neighborhood) || "—"}</p>}');
+source = source.replace(
+  /<p><b>Bairro:<\/b> \{person\.neighborhood \|\| "—"\}<\/p>/,
+  '<p><b>Município:</b> {person.municipality || "—"}</p><p><b>Bairro / localidade:</b> {person.neighborhood || "—"}</p>{person.municipality === "Manaus" && <p><b>Zona de Manaus:</b> {person.manausZone || getManausZone(person.neighborhood) || "—"}</p>}'
+);
 
 fs.writeFileSync(file, source);
 console.log('Territorial form patched successfully.');
