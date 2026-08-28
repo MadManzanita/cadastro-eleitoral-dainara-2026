@@ -83,11 +83,12 @@ function Field({ f, setF, n, label, type = "text", required = false, placeholder
 }
 
 function PixField({ f, setF }) {
-  return <label className="field"><span>Chave Pix</span><input name="pix" value={String(f.pix || "")} autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false} style={{ textTransform: "none" }} onChange={(e) => setF((current) => ({ ...current, pix: e.currentTarget.value }))} /></label>;
+  const updatePix = (value) => setF((current) => ({ ...current, pix: value }));
+  return <label className="field"><span>Chave Pix</span><input className="case-preserving-input" type="text" name="pix" value={String(f.pix || "")} autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false} onInput={(e) => updatePix(e.currentTarget.value)} onChange={(e) => updatePix(e.currentTarget.value)} /><small className="field-hint">Maiúsculas e minúsculas são preservadas exatamente como digitadas.</small></label>;
 }
 
 function HolderNameField({ f }) {
-  return <label className="field"><span>Nome do titular</span><input value={f.name || ""} readOnly aria-readonly="true" title="Preenchido automaticamente com o nome completo" /></label>;
+  return <label className="field"><span>Nome do titular</span><input value={f.name || ""} disabled aria-disabled="true" title="Preenchido automaticamente com o nome completo" /><small className="field-hint">Preenchido automaticamente pelo nome completo.</small></label>;
 }
 
 function Form({ kind, f, setF, save, back, msg, edit, admin, leaderships, leaderId, setLeaderId }) {
