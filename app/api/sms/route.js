@@ -12,7 +12,7 @@ async function sendSms(phone, code) {
   const { SMSGo } = await import("@orynlabs/smsgo");
   return new SMSGo({ apiKey }).send({
     phone: `+55${phone}`,
-    message: `Seu código de acesso é ${code}. Ele expira em 15 minutos.`
+    message: `Coordenacao Dainara: Seu codigo de acesso a Rede de Confianca e ${code}. Ele expira em breve.`
   });
 }
 
