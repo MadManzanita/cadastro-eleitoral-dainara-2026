@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { hashPassword, normalizeCpf, supabaseAdmin, verifyPassword } from "../../../lib/server-auth";
+import { hashPassword, normalizeCpf, signSession, supabaseAdmin, verifyPassword } from "../../../lib/server-auth";
 
 export const runtime = "nodejs";
 const fail = (error, status = 400) => NextResponse.json({ error }, { status });
@@ -74,7 +74,14 @@ export async function POST(request) {
       if (!verifyPassword(`sms:${code}`, challenge.code_hash)) return fail("Código incorreto.", 401);
       const { error: consumeError } = await db.from("sms_challenges").update({ consumed_at: new Date().toISOString() }).eq("id", challenge.id);
       if (consumeError) throw consumeError;
-      return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
+      const response = NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
+      response.cookies.set({
+        name: "cadastro_family_session",
+        value: signSession({ role: "activist", id: challenge.activist_id, leadershipId: challenge.leadership_id }),
+        httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production",
+        path: "/", maxAge: 30 * 60
+      });
+      return response;
     }
 
     return fail("Ação inválida.", 404);
