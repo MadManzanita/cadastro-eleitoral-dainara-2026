@@ -22,6 +22,14 @@ function activist(row) {
     created: row.created_at, updated: row.updated_at
   };
 }
+function family(row) {
+  return {
+    id: row.id, activistId: row.activist_id, leaderId: row.leadership_id, name: row.name,
+    birth: row.birth, cpf: row.cpf, phone: row.phone, address: row.address, mother: row.mother,
+    email: row.email, neighborhood: row.neighborhood, cep: row.cep, title: row.title,
+    zone: row.electoral_zone, section: row.electoral_section, created: row.created_at, updated: row.updated_at
+  };
+}
 function assessor(row) {
   return { id: row.id, name: row.name, role: row.role, phone: row.phone, email: row.email, notes: row.notes, created: row.created_at, updated: row.updated_at };
 }
@@ -32,7 +40,7 @@ function admin(row) {
 export async function GET(request) {
   try {
     const session = sessionFromRequest(request);
-    if (!session) return fail("Faça login para acessar os dados.", 401);
+    if (!session || !["admin", "leader"].includes(session.role)) return fail("Faça login para acessar os dados.", 401);
     const db = supabaseAdmin();
     const leadershipQuery = session.role === "admin"
       ? db.from("leaderships").select("*").order("created_at", { ascending: false })
@@ -41,11 +49,14 @@ export async function GET(request) {
       ? db.from("activists").select("*").order("created_at", { ascending: false })
       : db.from("activists").select("*").eq("leadership_id", session.id).order("created_at", { ascending: false });
     const assessorQuery = db.from("assessors").select("*").order("created_at", { ascending: false });
-    const [leaderships, activists, assessors, admins] = await Promise.all([
+    const familiesQuery = session.role === "admin"
+      ? db.from("families").select("*").order("created_at", { ascending: false })
+      : db.from("families").select("*").eq("leadership_id", session.id).order("created_at", { ascending: false });
+    const [leaderships, activists, assessors, admins, families] = await Promise.all([
       leadershipQuery, activistsQuery, assessorQuery,
-      session.role === "admin" ? db.from("admins").select("id,name,cpf,email,created_at,updated_at").order("created_at", { ascending: false }) : Promise.resolve({ data: [] })
+      session.role === "admin" ? db.from("admins").select("id,name,cpf,email,created_at,updated_at").order("created_at", { ascending: false }) : Promise.resolve({ data: [] }), familiesQuery
     ]);
-    const issue = [leaderships, activists, assessors, admins].find((result) => result.error)?.error;
+    const issue = [leaderships, activists, assessors, admins, families].find((result) => result.error)?.error;
     if (issue) throw issue;
     return NextResponse.json({
       session,
@@ -53,7 +64,8 @@ export async function GET(request) {
         leaderships: leaderships.data.map(leadership),
         activists: activists.data.map(activist),
         assessors: assessors.data.map(assessor),
-        admins: admins.data.map(admin)
+        admins: admins.data.map(admin),
+        families: families.data.map(family)
       }
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (cause) {
@@ -76,7 +88,7 @@ function fields(body) {
 export async function POST(request) {
   try {
     const session = sessionFromRequest(request);
-    if (!session) return fail("Faça login para continuar.", 401);
+    if (!session || !["admin", "leader"].includes(session.role)) return fail("Faça login para continuar.", 401);
     const body = await request.json();
     const db = supabaseAdmin();
 
@@ -97,11 +109,18 @@ export async function POST(request) {
     }
 
     if (body.action === "save-activist") {
+      if (!["admin", "leader"].includes(session.role)) return fail("Acesso não autorizado.", 403);
       const values = fields(body);
       const leadershipId = session.role === "admin" ? body.leaderId : session.id;
       if (!leadershipId || !values.name || values.cpf.length !== 11) return fail("Informe liderança, nome e CPF válidos.");
       if (body.id) {
-        const { data, error } = await db.from("activists").update({ ...values, leadership_id: leadershipId }).eq("id", body.id).select("*").single();
+        const ownership = session.role === "admin"
+          ? db.from("activists").select("id").eq("id", body.id)
+          : db.from("activists").select("id").eq("id", body.id).eq("leadership_id", session.id);
+        const { data: owned, error: ownershipError } = await ownership.maybeSingle();
+        if (ownershipError) throw ownershipError;
+        if (!owned) return fail("Ativista não encontrado ou fora da sua liderança.", 403);
+        const { data, error } = await db.from("activists").update({ ...values, leadership_id: leadershipId }).eq("id", owned.id).select("*").single();
         if (error) throw error;
         return NextResponse.json({ item: activist(data) });
       }
