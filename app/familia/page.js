@@ -17,7 +17,8 @@ function Input({ label, name, value, onChange, numeric=false, maxLength, placeho
   const preserveCase = ["email", "pix"].includes(name);
   const limits = { cpf: 11, phone: 11, cep: 8, title: 12, zone: 3, section: 4 };
   const electoral = ["title", "zone", "section"].includes(name);
-  return <label className="field"><span>{label}{required ? " *" : ""}</span><input type={type} required={required} value={value || ""} placeholder={placeholder} maxLength={maxLength} inputMode={numeric ? "numeric" : undefined} pattern={electoral ? "[0-9]*" : undefined} autoCapitalize={preserveCase ? "none" : undefined} spellCheck={preserveCase ? false : undefined} onChange={e=>{ let v=e.target.value; if(numeric)v=digits(v).slice(0, limits[name] ?? maxLength); else if(!preserveCase && type!=="date")v=upper(v); onChange(v); }}/></label>;
+  const displayValue = numeric ? digits(value).slice(0, limits[name] ?? maxLength) : (value || "");
+  return <label className="field"><span>{label}{required ? " *" : ""}</span><input type={type} required={required} value={displayValue} placeholder={placeholder} maxLength={maxLength} inputMode={numeric ? "numeric" : undefined} pattern={electoral ? "[0-9]*" : undefined} autoCapitalize={preserveCase ? "none" : undefined} spellCheck={preserveCase ? false : undefined} onChange={e=>{ let v=e.target.value; if(numeric)v=digits(v).slice(0, limits[name] ?? maxLength); else if(!preserveCase && type!=="date")v=upper(v); onChange(v); }}/></label>;
 }
 
 function TerritoryFields({ f, setF }) {
