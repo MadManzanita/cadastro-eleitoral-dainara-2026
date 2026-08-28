@@ -3,6 +3,7 @@ import { sessionFromRequest, supabaseAdmin } from "../../../lib/server-auth";
 
 export const runtime = "nodejs";
 const fail = (error, status) => NextResponse.json({ error }, { status });
+const onlyDigits = (value) => String(value || "").replace(/\D/g, "");
 
 function leadership(row) {
   return {
@@ -65,10 +66,10 @@ export async function GET(request) {
 function fields(body) {
   return {
     name: String(body.name || "").trim(), birth: body.birth || null, cpf: String(body.cpf || "").replace(/\D/g, ""),
-    phone: body.phone || null, address: body.address || null, mother: body.mother || null, email: body.email || null,
-    neighborhood: body.neighborhood || null, cep: body.cep || null, title: body.title || null,
-    electoral_zone: body.zone || null, electoral_section: body.section || null,
-    pix: body.pix || null, pix_name: body.pixname || null, bank: body.bank || null
+    phone: body.phone || null, address: body.address || null, mother: body.mother || null, email: String(body.email || "").trim() || null,
+    neighborhood: body.neighborhood || null, cep: body.cep || null, title: onlyDigits(body.title).slice(0, 12) || null,
+    electoral_zone: onlyDigits(body.zone).slice(0, 3) || null, electoral_section: onlyDigits(body.section).slice(0, 4) || null,
+    pix: String(body.pix || "").trim() || null, pix_name: body.pixname || null, bank: body.bank || null
   };
 }
 
