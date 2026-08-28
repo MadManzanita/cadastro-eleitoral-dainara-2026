@@ -12,7 +12,7 @@ async function sendSms(phone, code) {
   const { SMSGo } = await import("@orynlabs/smsgo");
   return new SMSGo({ apiKey }).send({
     phone: `+55${phone}`,
-    message: `Seu código de acesso é ${code}. Ele expira em 5 minutos.`
+    message: `Seu código de acesso é ${code}. Ele expira em 15 minutos.`
   });
 }
 
@@ -47,7 +47,7 @@ export async function POST(request) {
       const code = String(Math.floor(100000 + Math.random() * 900000));
       const { data: challenge, error: challengeError } = await db.from("sms_challenges").insert({
         activist_id: activist.id, leadership_id: leadershipId, phone, request_ip: requestIp,
-        code_hash: hashPassword(`sms:${code}`), expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString()
+        code_hash: hashPassword(`sms:${code}`), expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString()
       }).select("id").single();
       if (challengeError) throw challengeError;
 
