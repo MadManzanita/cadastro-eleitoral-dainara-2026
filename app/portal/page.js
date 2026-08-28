@@ -82,13 +82,21 @@ function Field({ f, setF, n, label, type = "text", required = false, placeholder
   return <label className="field"><span>{label}{required ? " *" : ""}</span><input type={type} required={required} value={numeric ? maskField(n, f[n]) : (f[n] || "")} placeholder={placeholder} maxLength={max} inputMode={numeric ? "numeric" : undefined} pattern={electoral ? "[0-9]*" : undefined} autoCapitalize={preserveCase ? "none" : undefined} autoCorrect={preserveCase ? "off" : undefined} spellCheck={preserveCase ? false : undefined} style={preserveCase ? { textTransform: "none" } : undefined} onChange={(e) => change(e.target.value)} /></label>;
 }
 
+function PixField({ f, setF }) {
+  return <label className="field"><span>Chave Pix</span><input name="pix" value={String(f.pix || "")} autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false} style={{ textTransform: "none" }} onChange={(e) => setF((current) => ({ ...current, pix: e.currentTarget.value }))} /></label>;
+}
+
+function HolderNameField({ f }) {
+  return <label className="field"><span>Nome do titular</span><input value={f.name || ""} readOnly aria-readonly="true" title="Preenchido automaticamente com o nome completo" /></label>;
+}
+
 function Form({ kind, f, setF, save, back, msg, edit, admin, leaderships, leaderId, setLeaderId }) {
   return <main className="shell"><section className="card wide"><button className="back" onClick={back}>← Voltar</button><h2>{edit ? `Editar ${kind}` : `Cadastro de ${kind}`}</h2><p>Preencha os dados e salve o cadastro.</p><form onSubmit={save}>
     <h3>Dados pessoais</h3><div className="form-grid"><Field f={f} setF={setF} n="name" label="Nome completo" required/><Field f={f} setF={setF} n="birth" label="Data de nascimento" type="date"/><Field f={f} setF={setF} n="cpf" label="CPF" required placeholder="000.000.000-00"/><Field f={f} setF={setF} n="phone" label="Celular / telefone" placeholder="(00) 00000-0000"/><Field f={f} setF={setF} n="address" label="Endereço"/><Field f={f} setF={setF} n="mother" label="Nome da mãe"/><Field f={f} setF={setF} n="email" label="E-mail" type="email"/><Field f={f} setF={setF} n="neighborhood" label="Bairro"/><Field f={f} setF={setF} n="cep" label="CEP" placeholder="00000-000"/></div>
     {kind === "ativista" && admin && <><h3>Vínculo</h3><div className="form-grid"><label className="field"><span>Liderança responsável *</span><select required value={leaderId || ""} onChange={(e) => setLeaderId(e.target.value)}><option value="">Selecione a liderança</option>{leaderships.map((l) => <option key={l.id} value={l.id}>{l.name} — CPF {cpfBR(l.cpf)}</option>)}</select></label></div></>}
     <h3>Dados eleitorais</h3><div className="form-grid three"><Field f={f} setF={setF} n="title" label="Título de eleitor" required placeholder="000000000000"/><Field f={f} setF={setF} n="zone" label="Zona"/><Field f={f} setF={setF} n="section" label="Seção"/></div>
     <div className="validation-row"><button type="button" className="outline" onClick={() => setF((x) => ({ ...x, _validation: `${cpfOK(x.cpf) ? "✓ CPF válido" : "✗ CPF inválido"} • ${titleOK(x.title) ? "✓ Título válido" : "✗ Título inválido"}` }))}>Validar CPF e título</button><a className="tse" href={TSE} target="_blank" rel="noreferrer">Consultar situação no TSE ↗</a></div>
-    <h3>Dados de pagamento</h3><div className="form-grid three"><Field f={f} setF={setF} n="pix" label="Chave Pix"/><Field f={f} setF={setF} n="pixname" label="Nome do titular"/><Field f={f} setF={setF} n="bank" label="Banco"/></div>
+    <h3>Dados de pagamento</h3><div className="form-grid three"><PixField f={f} setF={setF}/><HolderNameField f={f}/><Field f={f} setF={setF} n="bank" label="Banco"/></div>
     {f._validation && <div className="result">{f._validation}</div>}{msg && <div className="result">{msg}</div>}<button className="primary submit">{edit ? "Salvar alterações" : `Cadastrar ${kind}`}</button>
   </form></section></main>;
 }
@@ -287,7 +295,7 @@ export default function Portal() {
     if (!f.name.trim() || !cpfOK(f.cpf) || !titleOK(f.title)) return setMsg("Confira nome, CPF e título de eleitor.");
     try {
       const isAdmin = role === "admin";
-      const result = await remote(isAdmin ? "/api/data" : "/api/auth", { method: "POST", body: JSON.stringify(isAdmin ? { action: "save-leadership", ...f, id: editing?.id } : { action: "register-leadership", ...f, setupCode: code }) });
+      const result = await remote(isAdmin ? "/api/data" : "/api/auth", { method: "POST", body: JSON.stringify(isAdmin ? { action: "save-leadership", ...f, pixname: f.name, id: editing?.id } : { action: "register-leadership", ...f, pixname: f.name, setupCode: code }) });
       const x = result.item || result.person;
       setDb((d) => ({ ...d, leaderships: editing ? d.leaderships.map((a) => a.id === x.id ? x : a) : [...d.leaderships, x] }));
       setLeaderId(x.id); setEditing(null); setF(EMPTY);
@@ -299,7 +307,7 @@ export default function Portal() {
     e.preventDefault();
     if (!leaderId || !f.name.trim() || !cpfOK(f.cpf) || !titleOK(f.title)) return setMsg("Confira liderança, nome, CPF e título de eleitor.");
     try {
-      const result = await remote("/api/data", { method: "POST", body: JSON.stringify({ action: "save-activist", ...f, id: editing?.id, leaderId }) });
+      const result = await remote("/api/data", { method: "POST", body: JSON.stringify({ action: "save-activist", ...f, pixname: f.name, id: editing?.id, leaderId }) });
       const x = result.item;
       setDb((d) => ({ ...d, activists: editing ? d.activists.map((a) => a.id === x.id ? x : a) : [...d.activists, x] }));
       setEditing(null); setF(EMPTY); setView("activists"); go(returnTo);
