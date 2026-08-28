@@ -10,7 +10,7 @@ function leadership(row) {
     id: row.id, name: row.name, birth: row.birth, cpf: row.cpf, phone: row.phone,
     address: row.address, mother: row.mother, email: row.email, neighborhood: row.neighborhood,
     cep: row.cep, title: row.title, zone: row.electoral_zone, section: row.electoral_section,
-    pix: row.pix, pixname: row.pix_name, bank: row.bank, created: row.created_at, updated: row.updated_at
+    pix: row.pix, pixname: row.name, bank: row.bank, created: row.created_at, updated: row.updated_at
   };
 }
 function activist(row) {
@@ -18,7 +18,7 @@ function activist(row) {
     id: row.id, leaderId: row.leadership_id, name: row.name, birth: row.birth, cpf: row.cpf,
     phone: row.phone, address: row.address, mother: row.mother, email: row.email,
     neighborhood: row.neighborhood, cep: row.cep, title: row.title, zone: row.electoral_zone,
-    section: row.electoral_section, pix: row.pix, pixname: row.pix_name, bank: row.bank,
+    section: row.electoral_section, pix: row.pix, pixname: row.name, bank: row.bank,
     created: row.created_at, updated: row.updated_at
   };
 }
