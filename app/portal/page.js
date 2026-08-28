@@ -61,8 +61,10 @@ function maskField(n, v) {
 
 function Field({ f, setF, n, label, type = "text", required = false, placeholder }) {
   const numeric = ["cpf", "phone", "cep", "title", "zone", "section"].includes(n);
-  const max = { cpf: 14, phone: 15, cep: 9, title: 12, zone: 5, section: 5 }[n];
-  return <label className="field"><span>{label}{required ? " *" : ""}</span><input type={type} required={required} value={numeric ? maskField(n, f[n]) : (f[n] || "")} placeholder={placeholder} maxLength={max} inputMode={numeric ? "numeric" : undefined} onChange={(e) => { let v = e.target.value; if (numeric) { const limits = { cpf: 11, phone: 11, cep: 8, title: 12, zone: 5, section: 5 }; v = digits(v).slice(0, limits[n]); } setF((x) => ({ ...x, [n]: v })); }} /></label>;
+  const max = { cpf: 14, phone: 15, cep: 9, title: 12, zone: 3, section: 4 }[n];
+  const preserveCase = ["email", "pix"].includes(n);
+  const electoral = ["title", "zone", "section"].includes(n);
+  return <label className="field"><span>{label}{required ? " *" : ""}</span><input type={type} required={required} value={numeric ? maskField(n, f[n]) : (f[n] || "")} placeholder={placeholder} maxLength={max} inputMode={numeric ? "numeric" : undefined} pattern={electoral ? "[0-9]*" : undefined} autoCapitalize={preserveCase ? "none" : undefined} spellCheck={preserveCase ? false : undefined} onChange={(e) => { let v = e.target.value; if (numeric) { const limits = { cpf: 11, phone: 11, cep: 8, title: 12, zone: 3, section: 4 }; v = digits(v).slice(0, limits[n]); } else if (!preserveCase && type !== "date") { v = v.toUpperCase(); } setF((x) => ({ ...x, [n]: v })); }} /></label>;
 }
 
 function Form({ kind, f, setF, save, back, msg, edit, admin, leaderships, leaderId, setLeaderId }) {
