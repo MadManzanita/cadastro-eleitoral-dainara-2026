@@ -69,7 +69,7 @@ function fields(body) {
     phone: body.phone || null, address: body.address || null, mother: body.mother || null, email: String(body.email || "").trim() || null,
     neighborhood: body.neighborhood || null, cep: body.cep || null, title: onlyDigits(body.title).slice(0, 12) || null,
     electoral_zone: onlyDigits(body.zone).slice(0, 3) || null, electoral_section: onlyDigits(body.section).slice(0, 4) || null,
-    pix: String(body.pix || "").trim() || null, pix_name: body.pixname || null, bank: body.bank || null
+    pix: String(body.pix || "").trim() || null, pix_name: String(body.name || "").trim() || null, bank: body.bank || null
   };
 }
 
