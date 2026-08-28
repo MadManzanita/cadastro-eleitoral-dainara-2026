@@ -47,7 +47,7 @@ export async function POST(request) {
       const code = String(Math.floor(100000 + Math.random() * 900000));
       const { data: challenge, error: challengeError } = await db.from("sms_challenges").insert({
         activist_id: activist.id, leadership_id: leadershipId, phone, request_ip: requestIp,
-        code_hash: hashPassword(code), expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString()
+        code_hash: hashPassword(`sms:${code}`), expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString()
       }).select("id").single();
       if (challengeError) throw challengeError;
 
@@ -71,7 +71,7 @@ export async function POST(request) {
       if ((challenge.attempts || 0) >= 5) return fail("Limite de tentativas atingido. Solicite um novo código.", 429);
 
       await db.from("sms_challenges").update({ attempts: (challenge.attempts || 0) + 1 }).eq("id", challenge.id);
-      if (!verifyPassword(code, challenge.code_hash)) return fail("Código incorreto.", 401);
+      if (!verifyPassword(`sms:${code}`, challenge.code_hash)) return fail("Código incorreto.", 401);
       const { error: consumeError } = await db.from("sms_challenges").update({ consumed_at: new Date().toISOString() }).eq("id", challenge.id);
       if (consumeError) throw consumeError;
       return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
