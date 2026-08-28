@@ -55,7 +55,8 @@ function maskField(n, v) {
   if (n === "phone") return phoneBR(d);
   if (n === "cep") return cepBR(d);
   if (n === "title") return d.slice(0, 12);
-  if (n === "zone" || n === "section") return d;
+  if (n === "zone") return d.slice(0, 3);
+  if (n === "section") return d.slice(0, 4);
   return String(v || "");
 }
 
