@@ -87,7 +87,7 @@ export async function POST(request) {
         name, cpf, birth: body.birth || null, phone: body.phone || null, address: body.address || null,
         mother: body.mother || null, email: String(body.email || "").trim() || null, neighborhood: body.neighborhood || null,
         cep: body.cep || null, title: onlyDigits(body.title).slice(0, 12) || null, electoral_zone: onlyDigits(body.zone).slice(0, 3) || null,
-        electoral_section: onlyDigits(body.section).slice(0, 4) || null, pix: String(body.pix || "").trim() || null, pix_name: body.pixname || null,
+        electoral_section: onlyDigits(body.section).slice(0, 4) || null, pix: String(body.pix || "").trim() || null, pix_name: name,
         bank: body.bank || null, password_hash: hashPassword(temporaryPassword)
       };
       const { data, error: insertError } = await db.from("leaderships").insert(values).select("*").single();
