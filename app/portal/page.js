@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MANAUS_ZONES } from "../data/territories";
+import { AMAZONAS_MUNICIPALITIES, AMAZONAS_TERRITORIES, MANAUS_ZONES, getManausZone } from "../data/territories";
+import { PIX_BANKS } from "../data/banks";
 
 const TSE = "https://www.tse.jus.br/servicos-eleitorais/autoatendimento-eleitoral";
 const KEY = "cadastro-eleitoral-dainara-2026-v9";
 const LEGACY_KEYS = ["cadastro-eleitoral-dainara-2026-v8"];
 const EMPTY = {
   name: "", birth: "", cpf: "", phone: "", address: "", mother: "", email: "",
-  neighborhood: "", cep: "", title: "", zone: "", section: "", pix: "", pixname: "", bank: ""
+  municipality: "", neighborhood: "", manausZone: "", cep: "", title: "", zone: "", section: "", pix: "", pixname: "", bank: ""
 };
 const EMPTY_ASSESSOR = { name: "", role: "", phone: "", email: "", notes: "" };
 const digits = (v) => String(v || "").replace(/\D/g, "");
@@ -91,13 +92,28 @@ function HolderNameField({ f }) {
   return <label className="field"><span>Nome do titular</span><input value={f.name || ""} disabled aria-disabled="true" title="Preenchido automaticamente com o nome completo" /><small className="field-hint">Preenchido automaticamente pelo nome completo.</small></label>;
 }
 
+function TerritoryFields({ f, setF }) {
+  const inferredMunicipality = f.municipality || (MANAUS_ZONES[f.neighborhood] ? "Manaus" : "");
+  const neighborhoods = inferredMunicipality ? (AMAZONAS_TERRITORIES[inferredMunicipality] || []) : [];
+  const manausZone = inferredMunicipality === "Manaus" ? getManausZone(f.neighborhood || "") : "";
+  return <><h3>Localização territorial</h3><div className="form-grid three">
+    <label className="field"><span>Município *</span><select required value={inferredMunicipality} onChange={(e) => setF((x) => ({ ...x, municipality: e.target.value, neighborhood: "", manausZone: "" }))}><option value="">Selecione o município</option>{AMAZONAS_MUNICIPALITIES.map((municipality) => <option key={municipality} value={municipality}>{municipality}</option>)}</select></label>
+    <label className="field"><span>Bairro / localidade *</span><select required disabled={!inferredMunicipality} value={f.neighborhood || ""} onChange={(e) => setF((x) => ({ ...x, municipality: inferredMunicipality, neighborhood: e.target.value, manausZone: inferredMunicipality === "Manaus" ? getManausZone(e.target.value) : "" }))}><option value="">{inferredMunicipality ? "Selecione o bairro/localidade" : "Selecione primeiro o município"}</option>{neighborhoods.map((neighborhood) => <option key={neighborhood} value={neighborhood}>{neighborhood}</option>)}</select></label>
+    <label className="field"><span>Zona de Manaus</span><input readOnly value={manausZone} placeholder={inferredMunicipality === "Manaus" ? "Detectada automaticamente" : "Somente para Manaus"}/></label>
+  </div></>;
+}
+
+function BankField({ f, setF }) {
+  return <label className="field"><span>Banco</span><select value={f.bank || ""} onChange={(e) => setF((x) => ({ ...x, bank: e.target.value }))}><option value="">Selecione o banco</option>{PIX_BANKS.map((bank) => <option key={bank} value={bank}>{bank}</option>)}</select></label>;
+}
+
 function Form({ kind, f, setF, save, back, msg, edit, admin, leaderships, leaderId, setLeaderId }) {
   return <main className="shell"><section className="card wide"><button className="back" onClick={back}>← Voltar</button><h2>{edit ? `Editar ${kind}` : `Cadastro de ${kind}`}</h2><p>Preencha os dados e salve o cadastro.</p><form onSubmit={save}>
-    <h3>Dados pessoais</h3><div className="form-grid"><Field f={f} setF={setF} n="name" label="Nome completo" required/><Field f={f} setF={setF} n="birth" label="Data de nascimento" type="date"/><Field f={f} setF={setF} n="cpf" label="CPF" required placeholder="000.000.000-00"/><Field f={f} setF={setF} n="phone" label="Celular / telefone" placeholder="(00) 00000-0000"/><Field f={f} setF={setF} n="address" label="Endereço"/><Field f={f} setF={setF} n="mother" label="Nome da mãe"/><Field f={f} setF={setF} n="email" label="E-mail" type="email"/><Field f={f} setF={setF} n="neighborhood" label="Bairro"/><Field f={f} setF={setF} n="cep" label="CEP" placeholder="00000-000"/></div>
+    <h3>Dados pessoais</h3><div className="form-grid"><Field f={f} setF={setF} n="name" label="Nome completo" required/><Field f={f} setF={setF} n="birth" label="Data de nascimento" type="date"/><Field f={f} setF={setF} n="cpf" label="CPF" required placeholder="000.000.000-00"/><Field f={f} setF={setF} n="phone" label="Celular / telefone" placeholder="(00) 00000-0000"/><Field f={f} setF={setF} n="address" label="Endereço"/><Field f={f} setF={setF} n="mother" label="Nome da mãe"/><Field f={f} setF={setF} n="email" label="E-mail" type="email"/><Field f={f} setF={setF} n="cep" label="CEP" placeholder="00000-000"/></div><TerritoryFields f={f} setF={setF}/>
     {kind === "ativista" && admin && <><h3>Vínculo</h3><div className="form-grid"><label className="field"><span>Liderança responsável *</span><select required value={leaderId || ""} onChange={(e) => setLeaderId(e.target.value)}><option value="">Selecione a liderança</option>{leaderships.map((l) => <option key={l.id} value={l.id}>{l.name} — CPF {cpfBR(l.cpf)}</option>)}</select></label></div></>}
     <h3>Dados eleitorais</h3><div className="form-grid three"><Field f={f} setF={setF} n="title" label="Título de eleitor" required placeholder="000000000000"/><Field f={f} setF={setF} n="zone" label="Zona"/><Field f={f} setF={setF} n="section" label="Seção"/></div>
     <div className="validation-row"><button type="button" className="outline" onClick={() => setF((x) => ({ ...x, _validation: `${cpfOK(x.cpf) ? "✓ CPF válido" : "✗ CPF inválido"} • ${titleOK(x.title) ? "✓ Título válido" : "✗ Título inválido"}` }))}>Validar CPF e título</button><a className="tse" href={TSE} target="_blank" rel="noreferrer">Consultar situação no TSE ↗</a></div>
-    <h3>Dados de pagamento</h3><div className="form-grid three"><PixField f={f} setF={setF}/><HolderNameField f={f}/><Field f={f} setF={setF} n="bank" label="Banco"/></div>
+    <h3>Dados de pagamento</h3><div className="form-grid three"><PixField f={f} setF={setF}/><HolderNameField f={f}/><BankField f={f} setF={setF}/></div>
     {f._validation && <div className="result">{f._validation}</div>}{msg && <div className="result">{msg}</div>}<button className="primary submit">{edit ? "Salvar alterações" : `Cadastrar ${kind}`}</button>
   </form></section></main>;
 }
