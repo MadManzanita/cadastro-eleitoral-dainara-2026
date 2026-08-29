@@ -80,16 +80,17 @@ function Field({ f, setF, n, label, type = "text", required = false, placeholder
       return next;
     });
   };
-  return <label className="field"><span>{label}{required ? " *" : ""}</span><input type={type} required={required} value={numeric ? maskField(n, f[n]) : (f[n] || "")} placeholder={placeholder} maxLength={max} inputMode={numeric ? "numeric" : undefined} pattern={electoral ? "[0-9]*" : undefined} autoCapitalize={preserveCase ? "none" : undefined} autoCorrect={preserveCase ? "off" : undefined} spellCheck={preserveCase ? false : undefined} style={preserveCase ? { textTransform: "none" } : undefined} onChange={(e) => change(e.target.value)} /></label>;
+  const guidance = { name: "Digite o nome completo", phone: "DDD e número do telefone", address: "Rua, número e complemento", mother: "Digite o nome completo da mãe", email: "exemplo@email.com", cep: "CEP do endereço", title: "12 números do título", zone: "Até 3 números", section: "Até 4 números" }[n];
+  return <label className="field"><span>{label}{required ? " *" : ""}</span><input type={type} required={required} value={numeric ? maskField(n, f[n]) : (f[n] || "")} placeholder={placeholder || guidance} maxLength={max} inputMode={numeric ? "numeric" : undefined} pattern={electoral ? "[0-9]*" : undefined} autoCapitalize={preserveCase ? "none" : undefined} autoCorrect={preserveCase ? "off" : undefined} spellCheck={preserveCase ? false : undefined} style={preserveCase ? { textTransform: "none" } : undefined} onChange={(e) => change(e.target.value)} /></label>;
 }
 
 function PixField({ f, setF }) {
   const updatePix = (value) => setF((current) => ({ ...current, pix: value }));
-  return <label className="field"><span>Chave Pix</span><input className="case-preserving-input" type="text" name="pix" value={String(f.pix || "")} autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false} onInput={(e) => updatePix(e.currentTarget.value)} onChange={(e) => updatePix(e.currentTarget.value)} /><small className="field-hint">Maiúsculas e minúsculas são preservadas exatamente como digitadas.</small></label>;
+  return <label className="field"><span>Chave Pix</span><input className="case-preserving-input" type="text" name="pix" value={String(f.pix || "")} placeholder="CPF, CNPJ, celular, e-mail ou chave aleatória" autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false} onInput={(e) => updatePix(e.currentTarget.value)} onChange={(e) => updatePix(e.currentTarget.value)} /></label>;
 }
 
 function HolderNameField({ f }) {
-  return <label className="field"><span>Nome do titular</span><input value={f.name || ""} disabled aria-disabled="true" title="Preenchido automaticamente com o nome completo" /><small className="field-hint">Preenchido automaticamente pelo nome completo.</small></label>;
+  return <label className="field"><span>Nome do titular</span><input value={f.name || ""} placeholder="Preenchido automaticamente pelo nome completo" disabled aria-disabled="true" title="Preenchido automaticamente com o nome completo" /></label>;
 }
 
 function TerritoryFields({ f, setF }) {
@@ -104,7 +105,10 @@ function TerritoryFields({ f, setF }) {
 }
 
 function BankField({ f, setF }) {
-  return <label className="field"><span>Banco</span><select value={f.bank || ""} onChange={(e) => setF((x) => ({ ...x, bank: e.target.value }))}><option value="">Selecione o banco</option>{PIX_BANKS.map((bank) => <option key={bank} value={bank}>{bank}</option>)}</select></label>;
+  const other = Boolean(f.bankOther || (f.bank && !PIX_BANKS.includes(f.bank)));
+  const selected = other ? "__other__" : (f.bank || "");
+  const choose = (value) => setF((current) => value === "__other__" ? { ...current, bank: "", bankOther: true } : { ...current, bank: value, bankOther: false });
+  return <label className="field"><span>Banco</span><select value={selected} onChange={(e) => choose(e.target.value)}><option value="">Selecione o banco ou instituição Pix</option>{PIX_BANKS.map((bank) => <option key={bank} value={bank}>{bank}</option>)}<option value="__other__">Outros</option></select>{other && <input autoFocus value={f.bank || ""} placeholder="Digite o nome do banco ou instituição" onChange={(e) => setF((current) => ({ ...current, bank: e.target.value, bankOther: true }))}/>}</label>;
 }
 
 function Form({ kind, f, setF, save, back, msg, edit, admin, leaderships, leaderId, setLeaderId }) {
