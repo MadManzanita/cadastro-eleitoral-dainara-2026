@@ -5,6 +5,7 @@ export const runtime = "nodejs";
 const fail = (error, status = 400) => NextResponse.json({ error }, { status });
 const digits = (value) => String(value || "").replace(/\D/g, "");
 const nowMinusMinute = () => new Date(Date.now() - 60_000).toISOString();
+const maskPhone = (phone) => `${"*".repeat(Math.max(0, phone.length - 4))}${phone.slice(-4)}`;
 
 async function sendSms(phone, code) {
   const apiKey = process.env.SMSGO_KEY;
@@ -57,7 +58,7 @@ export async function POST(request) {
         await db.from("sms_challenges").delete().eq("id", challenge.id);
         throw sendError;
       }
-      return NextResponse.json({ ok: true, challengeId: challenge.id }, { headers: { "Cache-Control": "no-store" } });
+      return NextResponse.json({ ok: true, challengeId: challenge.id, maskedPhone: maskPhone(phone) }, { headers: { "Cache-Control": "no-store" } });
     }
 
     if (body.action === "verify-family-code") {
