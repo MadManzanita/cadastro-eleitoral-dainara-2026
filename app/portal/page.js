@@ -111,6 +111,21 @@ function BankField({ f, setF }) {
   return <label className="field"><span>Banco</span><select value={selected} onChange={(e) => choose(e.target.value)}><option value="">Selecione o banco ou instituição Pix</option>{PIX_BANKS.map((bank) => <option key={bank} value={bank}>{bank}</option>)}<option value="__other__">Outros</option></select>{other && <input autoFocus value={f.bank || ""} placeholder="Digite o nome do banco ou instituição" onChange={(e) => setF((current) => ({ ...current, bank: e.target.value, bankOther: true }))}/>}</label>;
 }
 
+function TerritoryFields({ f, setF }) {
+  const inferredMunicipality = f.municipality || (MANAUS_ZONES[f.neighborhood] ? "Manaus" : "");
+  const neighborhoods = inferredMunicipality ? (AMAZONAS_TERRITORIES[inferredMunicipality] || []) : [];
+  const manausZone = inferredMunicipality === "Manaus" ? getManausZone(f.neighborhood || "") : "";
+  return <><h3>Localização territorial</h3><div className="form-grid three">
+    <label className="field"><span>Município *</span><select required value={inferredMunicipality} onChange={(e) => setF((x) => ({ ...x, municipality: e.target.value, neighborhood: "", manausZone: "" }))}><option value="">Selecione o município</option>{AMAZONAS_MUNICIPALITIES.map((municipality) => <option key={municipality} value={municipality}>{municipality}</option>)}</select></label>
+    <label className="field"><span>Bairro / localidade *</span><select required disabled={!inferredMunicipality} value={f.neighborhood || ""} onChange={(e) => setF((x) => ({ ...x, municipality: inferredMunicipality, neighborhood: e.target.value, manausZone: inferredMunicipality === "Manaus" ? getManausZone(e.target.value) : "" }))}><option value="">{inferredMunicipality ? "Selecione o bairro/localidade" : "Selecione primeiro o município"}</option>{neighborhoods.map((neighborhood) => <option key={neighborhood} value={neighborhood}>{neighborhood}</option>)}</select></label>
+    <label className="field"><span>Zona de Manaus</span><input readOnly value={manausZone} placeholder={inferredMunicipality === "Manaus" ? "Detectada automaticamente" : "Somente para Manaus"}/></label>
+  </div></>;
+}
+
+function BankField({ f, setF }) {
+  return <label className="field"><span>Banco</span><select value={f.bank || ""} onChange={(e) => setF((x) => ({ ...x, bank: e.target.value }))}><option value="">Selecione o banco</option>{PIX_BANKS.map((bank) => <option key={bank} value={bank}>{bank}</option>)}</select></label>;
+}
+
 function Form({ kind, f, setF, save, back, msg, edit, admin, leaderships, leaderId, setLeaderId }) {
   return <main className="shell"><section className="card wide"><button className="back" onClick={back}>← Voltar</button><h2>{edit ? `Editar ${kind}` : `Cadastro de ${kind}`}</h2><p>Preencha os dados e salve o cadastro.</p><form onSubmit={save}>
     <h3>Dados pessoais</h3><div className="form-grid"><Field f={f} setF={setF} n="name" label="Nome completo" required/><Field f={f} setF={setF} n="birth" label="Data de nascimento" type="date"/><Field f={f} setF={setF} n="cpf" label="CPF" required placeholder="000.000.000-00"/><Field f={f} setF={setF} n="phone" label="Celular / telefone" placeholder="(00) 00000-0000"/><Field f={f} setF={setF} n="address" label="Endereço"/><Field f={f} setF={setF} n="mother" label="Nome da mãe"/><Field f={f} setF={setF} n="email" label="E-mail" type="email"/><Field f={f} setF={setF} n="cep" label="CEP" placeholder="00000-000"/></div><TerritoryFields f={f} setF={setF}/>
