@@ -16,7 +16,10 @@ function publicPerson(row) {
 export async function GET(request) {
   const session = sessionFromRequest(request);
   if (!session) return error("Sessão não encontrada.", 401);
-  return json({ session });
+  const renewedSession = { role: session.role, id: session.id };
+  const response = json({ session: renewedSession });
+  response.cookies.set(sessionCookie(signSession(renewedSession)));
+  return response;
 }
 
 export async function POST(request) {
