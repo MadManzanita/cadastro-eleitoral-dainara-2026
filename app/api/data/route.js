@@ -141,6 +141,19 @@ export async function POST(request) {
       return NextResponse.json({ item: assessor(data) }, { status: body.id ? 200 : 201 });
     }
 
+    if (body.action === "save-admin-profile") {
+      if (session.role !== "admin") return fail("Acesso não autorizado.", 403);
+      const id = String(body.id || "");
+      const values = {
+        name: String(body.name || "").trim(),
+        email: String(body.email || "").trim() || null
+      };
+      if (!id || !values.name) return fail("Informe o nome do administrador.", 400);
+      const { data, error } = await db.from("admins").update(values).eq("id", id).select("id,name,cpf,email,created_at,updated_at").single();
+      if (error) throw error;
+      return NextResponse.json({ item: admin(data) });
+    }
+
     if (body.action === "delete-assessor") {
       if (session.role !== "admin") return fail("Acesso não autorizado.", 403);
       const { error } = await db.from("assessors").delete().eq("id", body.id);
