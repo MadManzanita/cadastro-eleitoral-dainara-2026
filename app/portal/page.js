@@ -309,7 +309,7 @@ function Side({ admin, view, setView, logout, newL, newA, exportExcel, exportCSV
 }
 
 export default function Portal() {
-  const [mode, setMode] = useState("home"), [code, setCode] = useState(""), [cpf, setCpf] = useState(""), [password, setPassword] = useState(""), [msg, setMsg] = useState(""), [f, setF] = useState(EMPTY), [db, setDb] = useState(fresh()), [role, setRole] = useState(null), [leaderId, setLeaderId] = useState(null), [view, setView] = useState("dashboard"), [search, setSearch] = useState(""), [detail, setDetail] = useState(null), [editing, setEditing] = useState(null), [returnTo, setReturnTo] = useState("home"), [generatedPassword, setGeneratedPassword] = useState(""), [generatedPerson, setGeneratedPerson] = useState(null), [assessorForm, setAssessorForm] = useState(EMPTY_ASSESSOR), [editingAssessor, setEditingAssessor] = useState(null), [assessorEditorOpen, setAssessorEditorOpen] = useState(false);
+  const [mode, setMode] = useState("home"), [booting, setBooting] = useState(true), [code, setCode] = useState(""), [cpf, setCpf] = useState(""), [password, setPassword] = useState(""), [msg, setMsg] = useState(""), [f, setF] = useState(EMPTY), [db, setDb] = useState(fresh()), [role, setRole] = useState(null), [leaderId, setLeaderId] = useState(null), [view, setView] = useState("dashboard"), [search, setSearch] = useState(""), [detail, setDetail] = useState(null), [editing, setEditing] = useState(null), [returnTo, setReturnTo] = useState("home"), [generatedPassword, setGeneratedPassword] = useState(""), [generatedPerson, setGeneratedPerson] = useState(null), [assessorForm, setAssessorForm] = useState(EMPTY_ASSESSOR), [editingAssessor, setEditingAssessor] = useState(null), [assessorEditorOpen, setAssessorEditorOpen] = useState(false);
 
   useEffect(() => { try { const raw = localStorage.getItem(KEY) || LEGACY_KEYS.map((k) => localStorage.getItem(k)).find(Boolean); if (raw) { const parsed = JSON.parse(raw); setDb({ ...fresh(), ...parsed, assessors: Array.isArray(parsed.assessors) ? parsed.assessors : [] }); } } catch (e) { console.error(e); } }, []);
   useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { console.error(e); } }, [db]);
@@ -326,6 +326,25 @@ export default function Portal() {
     setDb({ ...fresh(), ...payload.db });
     return payload;
   };
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const { session } = await remote("/api/auth");
+        await loadRemote();
+        if (!active) return;
+        setRole(session.role);
+        setLeaderId(session.role === "leader" ? session.id : null);
+        setView("dashboard");
+        setMode(session.role === "admin" ? "admin-area" : "leader-area");
+      } catch {
+        if (active) setMode("home");
+      } finally {
+        if (active) setBooting(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
   const go = (next) => { setMode(next); setMsg(""); };
   const logout = async () => {
     try { await remote("/api/auth", { method: "POST", body: JSON.stringify({ action: "logout" }) }); } catch {}
@@ -434,6 +453,7 @@ export default function Portal() {
 
   const exportCSV = () => { const h=["Liderança","Nome completo","Data de nascimento","CPF","Telefone","Endereço","Nome da mãe","E-mail","Bairro","CEP","Título de eleitor","Zona","Seção","Chave Pix","Titular Pix","Banco"];const rows=[];db.leaderships.forEach(l=>db.activists.filter(a=>a.leaderId===l.id).forEach(a=>rows.push([l.name,a.name,dateBR(a.birth),cpfBR(a.cpf),phoneBR(a.phone),a.address,a.mother,a.email,a.neighborhood,cepBR(a.cep),a.title,a.zone,a.section,a.pix,a.pixname,a.bank])));const csv=[h,...rows].map(r=>r.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(";")).join("\r\n");const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`cadastro-eleitoral-dainara-${new Date().toISOString().slice(0,10)}.csv`;a.click();URL.revokeObjectURL(url);setMsg("CSV exportado."); };
 
+  if(booting) return <main className="shell"><section className="card auth-card"><h2>Carregando…</h2><p>Verificando sua sessão.</p></section></main>;
   if(mode==="home") return <main className="shell"><section className="hero"><b>Cadastro Eleitoral</b><h1>Coordenadora Dainara Torres</h1><p>Portal de acesso, cadastro e gestão de lideranças e ativistas.</p><div className="actions"><button onClick={()=>go("leader-access")}>Já sou liderança</button><button onClick={()=>go("leader-release")}>Se torne liderança</button><button className="outline" onClick={()=>go("admin-access")}>Acesso administrativo</button><button className="outline" onClick={()=>go("admin-release")}>Se tornar administrador</button></div><div className="home-note">Cadastros protegidos e armazenados no sistema.</div></section></main>;
   if(["leader-access","admin-access","leader-release","admin-release"].includes(mode)){const admin=mode.includes("admin"),rel=mode.includes("release");return <Access admin={admin} release={rel} cpf={cpf} setCpf={setCpf} password={password} setPassword={setPassword} code={code} setCode={setCode} msg={msg} onBack={()=>go("home")} onEnter={()=>rel?release(admin):(admin?enterAdmin():enterLeader())} onSwitch={()=>go(rel?(admin?"admin-access":"leader-access"):(admin?"admin-release":"leader-release"))}/>;}
   if(mode==="admin-reg") return <AdminReg back={()=>go("admin-area")} save={saveAdmin} msg={msg}/>;
