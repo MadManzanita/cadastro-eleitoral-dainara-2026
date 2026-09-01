@@ -17,6 +17,16 @@ function publicPerson(row) {
 export async function GET(request) {
   const session = sessionFromRequest(request);
   if (!session) return error("Sessão não encontrada.", 401);
+  if (session.role === "leader") {
+    const db = supabaseAdmin();
+    const { data: leader, error: lookupError } = await db.from("leaderships").select("id,archived_at").eq("id", session.id).maybeSingle();
+    if (lookupError) return error("Não foi possível verificar o acesso da liderança.", 500);
+    if (!leader || leader.archived_at) {
+      const response = error(leader?.archived_at ? "Este cadastro está arquivado. Entre em contato com a coordenação." : "Cadastro de liderança não encontrado.", 403);
+      response.cookies.set(sessionCookie());
+      return response;
+    }
+  }
   const renewedSession = { role: session.role, id: session.id };
   const response = json({ session: renewedSession });
   response.cookies.set(sessionCookie(signSession(renewedSession)));
@@ -48,6 +58,7 @@ export async function POST(request) {
       const { data, error: queryError } = await db.from(table).select("*").eq("cpf", cpf).maybeSingle();
       if (queryError) throw queryError;
       if (!data || !verifyPassword(password, data.password_hash)) return error("CPF ou senha incorretos.", 401);
+      if (role === "leader" && data.archived_at) return error("Este cadastro está arquivado. Entre em contato com a coordenação.", 403);
 
       const response = json({ ok: true, role, person: publicPerson(data) });
       response.cookies.set(sessionCookie(signSession({ role, id: data.id })));

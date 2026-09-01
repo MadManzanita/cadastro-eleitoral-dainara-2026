@@ -49,7 +49,7 @@ const phoneBR = (v) => {
   return String(v || "");
 };
 
-const fresh = () => ({ leaderships: [], activists: [], families: [], admins: [], assessors: [] });
+const fresh = () => ({ leaderships: [], archivedLeaderships: [], activists: [], archivedActivists: [], families: [], archivedFamilies: [], admins: [], assessors: [] });
 
 function maskField(n, v) {
   const d = digits(v);
@@ -160,9 +160,9 @@ function AdminLeadershipCredential({ person, onReset }) {
   return <div className="panel credential-admin"><h3>Credencial de acesso</h3><p>Por segurança, a senha atual não pode ser exibida. Gere uma nova senha para repassar à liderança.</p><button type="button" className="outline" onClick={reset}>Gerar nova senha</button>{newPassword && <div className="credential-box"><div className="credential-item"><span>NOVA SENHA DE ACESSO</span><strong>{newPassword}</strong></div><p>Copie e entregue esta senha agora. A senha anterior foi invalidada.</p><button type="button" className="copy-password" onClick={copy}>Copiar nova senha</button></div>}</div>;
 }
 
-function Detail({ person, title, leader, onBack, onEdit, team, credential }) {
+function Detail({ person, title, leader, onBack, onEdit, team, credential, actions }) {
   if (!person) return <main className="shell"><section className="card"><button className="back" onClick={onBack}>← Voltar</button><div className="empty">Cadastro não encontrado.</div></section></main>;
-  return <main className="shell"><section className="card wide"><div className="page-head"><div><button className="back" onClick={onBack}>← Voltar</button><h2>{title}</h2></div><button className="primary" onClick={onEdit}>Editar cadastro</button></div>{leader && <div className="context-badge">Liderança: <b>{leader}</b></div>}<div className="detail-grid"><div className="panel"><h3>Dados pessoais</h3><p><b>Nome:</b> {person.name}</p><p><b>Nascimento:</b> {dateBR(person.birth) || "—"}</p><p><b>CPF:</b> {cpfBR(person.cpf) || "—"}</p><p><b>Telefone:</b> {phoneBR(person.phone) || "—"}</p><p><b>E-mail:</b> {person.email || "—"}</p><p><b>Nome da mãe:</b> {person.mother || "—"}</p><p><b>Endereço:</b> {person.address || "—"}</p><p><b>Bairro:</b> {person.neighborhood || "—"}</p><p><b>CEP:</b> {cepBR(person.cep) || "—"}</p></div><div className="panel"><h3>Dados eleitorais</h3><p><b>Título:</b> {person.title || "—"}</p><p><b>Zona:</b> {person.zone || "—"}</p><p><b>Seção:</b> {person.section || "—"}</p><h3>Dados de pagamento</h3><p><b>Pix:</b> {person.pix || "—"}</p><p><b>Titular:</b> {person.pixname || "—"}</p><p><b>Banco:</b> {person.bank || "—"}</p></div></div>{credential}{team}</section></main>;
+  return <main className="shell"><section className="card wide"><div className="page-head"><div><button className="back" onClick={onBack}>← Voltar</button><h2>{title}</h2></div><div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}><button className="primary" onClick={onEdit}>Editar cadastro</button>{actions}</div></div>{leader && <div className="context-badge">Liderança: <b>{leader}</b></div>}<div className="detail-grid"><div className="panel"><h3>Dados pessoais</h3><p><b>Nome:</b> {person.name}</p><p><b>Nascimento:</b> {dateBR(person.birth) || "—"}</p><p><b>CPF:</b> {cpfBR(person.cpf) || "—"}</p><p><b>Telefone:</b> {phoneBR(person.phone) || "—"}</p><p><b>E-mail:</b> {person.email || "—"}</p><p><b>Nome da mãe:</b> {person.mother || "—"}</p><p><b>Endereço:</b> {person.address || "—"}</p><p><b>Bairro:</b> {person.neighborhood || "—"}</p><p><b>CEP:</b> {cepBR(person.cep) || "—"}</p></div><div className="panel"><h3>Dados eleitorais</h3><p><b>Título:</b> {person.title || "—"}</p><p><b>Zona:</b> {person.zone || "—"}</p><p><b>Seção:</b> {person.section || "—"}</p><h3>Dados de pagamento</h3><p><b>Pix:</b> {person.pix || "—"}</p><p><b>Titular:</b> {person.pixname || "—"}</p><p><b>Banco:</b> {person.bank || "—"}</p></div></div>{credential}{team}</section></main>;
 }
 
 
@@ -309,7 +309,7 @@ function Side({ admin, view, setView, logout, newL, newA, exportExcel, exportCSV
   const item = (name, label, icon) => <button className={view === name ? "active" : ""} onClick={() => setView(name)}>{icon} {label}</button>;
   return <aside className="sidebar"><div className="brand"><b>Cadastro Eleitoral</b><span>{admin ? "Coordenadora Dainara Torres" : "Área da liderança"}</span></div><div className="nav-title">Menu</div><nav>
     {item("dashboard", "Dashboard", "⌂")}
-    {admin ? <>{item("leaderships", "Lideranças", "♙")}{item("activists", "Ativistas", "♧")}{item("trust-network", "Rede de confiança", "♡")}{item("daily-activities", "Atividades diárias", "▣")}{item("admins", "Administradores", "◉")}{item("assessors", "Assessoria", "☎")}<button onClick={newL}>＋ Nova liderança</button></>
+    {admin ? <>{item("leaderships", "Lideranças", "♙")}{item("archived", "Arquivados", "▤")}{item("activists", "Ativistas", "♧")}{item("trust-network", "Rede de confiança", "♡")}{item("daily-activities", "Atividades diárias", "▣")}{item("admins", "Administradores", "◉")}{item("assessors", "Assessoria", "☎")}<button onClick={newL}>＋ Nova liderança</button></>
       : <>{item("activists", "Meus ativistas", "♧")}<button onClick={newA}>＋ Adicionar ativista</button>{item("trust-network", "Rede de confiança", "♡")}{item("daily-activities", "Registro de atividade", "▣")}{item("profile", "Meu cadastro", "👤")}{item("assessors", "Contatos da assessoria", "☎")}</>}
   </nav>{admin && <><button className="export-side" onClick={exportExcel}>⇩ Exportar Excel</button><button className="export-side" onClick={exportCSV}>⇩ Exportar CSV</button></>}<button className="logout" onClick={logout}>Sair</button></aside>;
 }
@@ -358,6 +358,7 @@ export default function Portal() {
   };
   const leader = db.leaderships.find((x) => x.id === leaderId), mine = db.activists.filter((x) => x.leaderId === leaderId);
   const leaders = useMemo(() => db.leaderships.filter((x) => `${x.name} ${x.cpf} ${x.title}`.toLowerCase().includes(search.toLowerCase())), [db.leaderships, search]);
+  const archivedLeaders = useMemo(() => db.archivedLeaderships.filter((x) => `${x.name} ${x.cpf} ${x.title}`.toLowerCase().includes(search.toLowerCase())), [db.archivedLeaderships, search]);
   const acts = useMemo(() => db.activists.filter((x) => `${x.name} ${x.cpf} ${x.title}`.toLowerCase().includes(search.toLowerCase())), [db.activists, search]);
 
   const enterAdmin = async () => {
@@ -420,6 +421,55 @@ export default function Portal() {
     if (!window.confirm("Excluir este contato da assessoria? Ele deixará de aparecer para as lideranças.")) return;
     try { await remote("/api/data", { method: "POST", body: JSON.stringify({ action: "delete-assessor", id }) }); setDb((d) => ({ ...d, assessors: d.assessors.filter((a) => a.id !== id) })); setMsg("Contato removido."); }
     catch (error) { setMsg(error.message); }
+  };
+  const archiveLeadership = async (item) => {
+    if (!window.confirm(`Arquivar a liderança ${item.name}? O acesso será bloqueado imediatamente, mas o cadastro poderá ser restaurado.`)) return;
+    try {
+      const result = await remote("/api/data", { method: "POST", body: JSON.stringify({ action: "archive-leadership", id: item.id }) });
+      setDb((current) => ({
+        ...current,
+        leaderships: current.leaderships.filter((leader) => leader.id !== item.id),
+        archivedLeaderships: [result.item, ...current.archivedLeaderships.filter((leader) => leader.id !== item.id)],
+        activists: current.activists.filter((activist) => activist.leaderId !== item.id),
+        archivedActivists: [...current.activists.filter((activist) => activist.leaderId === item.id), ...current.archivedActivists],
+        families: current.families.filter((family) => family.leaderId !== item.id),
+        archivedFamilies: [...current.families.filter((family) => family.leaderId === item.id), ...current.archivedFamilies]
+      }));
+      setDetail(null); setSearch(""); setView("archived"); setMsg("Liderança arquivada. O acesso dela foi bloqueado.");
+    } catch (error) { setMsg(error.message); }
+  };
+  const restoreLeadership = async (item) => {
+    if (!window.confirm(`Restaurar a liderança ${item.name}? Ela poderá entrar novamente com a senha existente.`)) return;
+    try {
+      const result = await remote("/api/data", { method: "POST", body: JSON.stringify({ action: "restore-leadership", id: item.id }) });
+      setDb((current) => ({
+        ...current,
+        leaderships: [result.item, ...current.leaderships.filter((leader) => leader.id !== item.id)],
+        archivedLeaderships: current.archivedLeaderships.filter((leader) => leader.id !== item.id),
+        activists: [...current.archivedActivists.filter((activist) => activist.leaderId === item.id), ...current.activists],
+        archivedActivists: current.archivedActivists.filter((activist) => activist.leaderId !== item.id),
+        families: [...current.archivedFamilies.filter((family) => family.leaderId === item.id), ...current.families],
+        archivedFamilies: current.archivedFamilies.filter((family) => family.leaderId !== item.id)
+      }));
+      setMsg("Liderança restaurada. O acesso foi liberado novamente.");
+    } catch (error) { setMsg(error.message); }
+  };
+  const deleteLeadership = async (item) => {
+    const warning = `Excluir definitivamente ${item.name}? Também serão excluídos os ativistas, a Rede de confiança e os registros de atividade vinculados. Esta ação não pode ser desfeita.`;
+    if (!window.confirm(warning) || !window.confirm("Confirme mais uma vez a exclusão definitiva desta liderança e de todos os dados vinculados.")) return;
+    try {
+      await remote("/api/data", { method: "POST", body: JSON.stringify({ action: "delete-leadership", id: item.id }) });
+      setDb((current) => ({
+        ...current,
+        leaderships: current.leaderships.filter((leader) => leader.id !== item.id),
+        archivedLeaderships: current.archivedLeaderships.filter((leader) => leader.id !== item.id),
+        activists: current.activists.filter((activist) => activist.leaderId !== item.id),
+        archivedActivists: current.archivedActivists.filter((activist) => activist.leaderId !== item.id),
+        families: current.families.filter((family) => family.leaderId !== item.id),
+        archivedFamilies: current.archivedFamilies.filter((family) => family.leaderId !== item.id)
+      }));
+      setDetail(null); setView("archived"); setMsg("Liderança e dados vinculados excluídos definitivamente.");
+    } catch (error) { setMsg(error.message); }
   };
   const editAdmin = (item) => { setEditingAdmin(item); setAdminForm({ name: item.name || "", email: item.email || "" }); setMsg(""); };
   const cancelAdminEdit = () => { setEditingAdmin(null); setAdminForm({ name: "", email: "" }); };
@@ -485,10 +535,11 @@ export default function Portal() {
   let content=null;
   if(view==="dashboard") content=admin?<><div className="cards"><div className="metric"><div className="label">Lideranças</div><div className="value">{db.leaderships.length}</div></div><div className="metric"><div className="label">Ativistas</div><div className="value">{db.activists.length}</div></div><div className="metric"><div className="label">Administradores</div><div className="value">{db.admins.length}</div></div><div className="metric"><div className="label">Assessoria</div><div className="value">{db.assessors.length}</div></div></div><div className="quick-grid"><button className="quick" onClick={()=>setView("leaderships")}><b>♙ Lideranças</b><span>Visualizar e gerenciar todas as lideranças.</span></button><button className="quick" onClick={()=>setView("activists")}><b>♧ Ativistas</b><span>Consultar ativistas e suas lideranças responsáveis.</span></button><button className="quick" onClick={()=>setView("assessors")}><b>☎ Assessoria</b><span>Adicionar e editar os contatos mostrados às lideranças.</span></button><button className="quick" onClick={()=>go("admin-release")}><b>＋ Novo administrador</b><span>Liberar um novo cadastro com o código de teste.</span></button></div><div className="panel"><div className="page-head"><div><h2>Visão geral</h2><p>Gerencie os cadastros e mantenha as equipes separadas por liderança.</p></div><button className="primary" onClick={startL}>＋ Nova liderança</button></div></div><ManausCoverageMap db={db}/></> : <><div className="cards"><div className="metric"><div className="label">Meus ativistas</div><div className="value">{mine.length}</div></div><div className="metric"><div className="label">Meu cadastro</div><div className="value">✓</div></div></div><div className="quick-grid"><button className="quick" onClick={()=>setView("activists")}><b>♧ Meus ativistas</b><span>Veja somente os ativistas vinculados à sua liderança.</span></button><button className="quick" onClick={()=>startA()}><b>＋ Adicionar ativista</b><span>Cadastre um novo ativista vinculado a você.</span></button><button className="quick" onClick={()=>setView("profile")}><b>👤 Meu cadastro</b><span>Consulte e edite seus próprios dados.</span></button><button className="quick" onClick={()=>setView("assessors")}><b>☎ Assessoria</b><span>Veja os contatos disponibilizados pela coordenação.</span></button><button className="quick" onClick={async()=>{const link=window.location.origin + "/familia?lideranca=" + encodeURIComponent(leaderId||"");try{await navigator.clipboard.writeText(link);setMsg("Link da Rede de confiança copiado. Compartilhe-o com os ativistas da sua liderança.");}catch{setMsg("Não foi possível copiar o link automaticamente.");}}}><b>♡ Copiar link da Rede de confiança</b><span>Compartilhe este link com os ativistas vinculados à sua liderança.</span></button></div></>;
   else if(view==="leaderships"&&admin) content=<div className="panel"><div className="page-head"><div><h2>Lideranças</h2><p>Todas as lideranças cadastradas pela coordenação.</p></div><button className="primary" onClick={startL}>＋ Nova liderança</button></div><input className="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Pesquisar por nome, CPF ou título..."/>{leaders.length?leaders.map(l=><div className="list-item clickable" key={l.id} onClick={()=>{setDetail(l.id);setView("leadership-detail")}}><div><b>{l.name}</b><small>{cpfBR(l.cpf)} • Título {l.title}</small></div><span>{db.activists.filter(a=>a.leaderId===l.id).length} ativista(s) →</span></div>):<div className="empty">Nenhuma liderança encontrada.</div>}</div>;
+  else if(view==="archived"&&admin) content=<div className="panel"><div className="page-head"><div><h2>Arquivados</h2><p>Lideranças com acesso bloqueado. Restaure o cadastro ou faça a exclusão definitiva.</p></div></div><input className="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Pesquisar arquivados por nome, CPF ou título..."/>{archivedLeaders.length?archivedLeaders.map(l=><div className="assessor-admin-row" key={l.id}><div className="assessor-info"><b>{l.name}</b><small>{cpfBR(l.cpf)} • Título {l.title||"—"}</small><span>Arquivado em {l.archivedAt?new Date(l.archivedAt).toLocaleString("pt-BR"):"—"}</span><span>{db.archivedActivists.filter(a=>a.leaderId===l.id).length} ativista(s) vinculado(s)</span></div><div className="assessor-actions"><button className="outline" onClick={()=>restoreLeadership(l)}>Restaurar</button><button className="danger" onClick={()=>deleteLeadership(l)}>Excluir definitivamente</button></div></div>):<div className="empty">Nenhuma liderança arquivada.</div>}</div>;
   else if(view==="activists"){const list=admin?acts:mine.filter(a=>`${a.name} ${a.cpf} ${a.title}`.toLowerCase().includes(search.toLowerCase()));content=<div className="panel"><div className="page-head"><div><h2>{admin?"Ativistas":"Meus ativistas"}</h2><p>{admin?"A liderança aparece em cada linha para não misturar equipes.":`Liderança: ${leader?.name||"não cadastrada"}`}</p></div><button className="primary" onClick={()=>startA()}>＋ Adicionar ativista</button></div><input className="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Pesquisar por nome, CPF ou título..."/>{list.length?list.map(a=>{const l=db.leaderships.find(x=>x.id===a.leaderId);return <div className="list-item clickable activist-row" key={a.id} onClick={()=>{setDetail(a.id);setView("activist-detail")}}><div><b>{a.name}</b><small>{cpfBR(a.cpf)} • Título {a.title}</small></div><span className="leader-tag">👤 {l?.name||"Sem liderança"}</span></div>}):<div className="empty">Nenhum ativista encontrado.</div>}</div>}
   else if(view==="trust-network") content=<TrustNetworkManager db={db} setDb={setDb} admin={admin} remote={remote}/>;
   else if(view==="daily-activities") content=<ActivityRecords admin={admin}/>;
-  else if(view==="leadership-detail"&&admin){const l=db.leaderships.find(x=>x.id===detail),team=db.activists.filter(x=>x.leaderId===detail);content=<Detail title="Liderança" person={l} onBack={()=>setView("leaderships")} onEdit={()=>edit(l,"leader")} credential={<AdminLeadershipCredential person={l} onReset={async () => { const password = makePassword(); try { await remote("/api/auth", { method: "POST", body: JSON.stringify({ action: "reset-leadership-password", leadershipId: l.id, password }) }); setMsg("Nova senha gerada. Copie-a e entregue à liderança."); return password; } catch (error) { setMsg(error.message); return ""; } }} />} team={<div className="panel team-panel"><div className="page-head"><div><h3>Ativistas vinculados: {team.length}</h3><p>Equipe delimitada para facilitar a gestão.</p></div><button className="primary" onClick={()=>startA(l?.id)}>＋ Adicionar ativista</button></div>{team.length?team.map(a=><div className="list-item clickable" key={a.id} onClick={()=>{setDetail(a.id);setView("activist-detail")}}><div><b>{a.name}</b><small>{cpfBR(a.cpf)} • Título {a.title}</small></div><span>Ver cadastro →</span></div>):<div className="empty">Nenhum ativista vinculado.</div>}</div>}/>}
+  else if(view==="leadership-detail"&&admin){const l=db.leaderships.find(x=>x.id===detail),team=db.activists.filter(x=>x.leaderId===detail);content=<Detail title="Liderança" person={l} onBack={()=>setView("leaderships")} onEdit={()=>edit(l,"leader")} actions={<><button className="outline" onClick={()=>archiveLeadership(l)}>Arquivar</button><button className="danger" onClick={()=>deleteLeadership(l)}>Excluir</button></>} credential={<AdminLeadershipCredential person={l} onReset={async () => { const password = makePassword(); try { await remote("/api/auth", { method: "POST", body: JSON.stringify({ action: "reset-leadership-password", leadershipId: l.id, password }) }); setMsg("Nova senha gerada. Copie-a e entregue à liderança."); return password; } catch (error) { setMsg(error.message); return ""; } }} />} team={<div className="panel team-panel"><div className="page-head"><div><h3>Ativistas vinculados: {team.length}</h3><p>Equipe delimitada para facilitar a gestão.</p></div><button className="primary" onClick={()=>startA(l?.id)}>＋ Adicionar ativista</button></div>{team.length?team.map(a=><div className="list-item clickable" key={a.id} onClick={()=>{setDetail(a.id);setView("activist-detail")}}><div><b>{a.name}</b><small>{cpfBR(a.cpf)} • Título {a.title}</small></div><span>Ver cadastro →</span></div>):<div className="empty">Nenhum ativista vinculado.</div>}</div>}/>}
   else if(view==="activist-detail"){const a=db.activists.find(x=>x.id===detail),l=db.leaderships.find(x=>x.id===a?.leaderId);content=<Detail title="Cadastro do ativista" person={a} leader={l?.name} onBack={()=>setView("activists")} onEdit={()=>edit(a,"activist")}/>;}
   else if(view==="profile"&&!admin) content=<Detail title="Meu cadastro" person={leader} onBack={()=>setView("dashboard")} onEdit={()=>leader&&edit(leader,"leader")}/>;
   else if(view==="assessors"&&admin) content=<div className="panel"><div className="page-head"><div><h2>Contatos da assessoria</h2><p>Cadastre aqui os contatos que aparecerão automaticamente na Área da Liderança.</p></div><button type="button" className="primary" onClick={() => { setMsg(""); setEditingAssessor(null); setAssessorForm({ ...EMPTY_ASSESSOR }); setAssessorEditorOpen(true); setView("assessors"); }}>＋ Adicionar contato</button></div>{assessorEditorOpen&&<div className="assessor-modal-backdrop" role="dialog" aria-modal="true"><div className="assessor-modal"><AssessorForm form={assessorForm} setForm={setAssessorForm} save={saveAssessor} cancel={cancelAssessor} editing={editingAssessor}/></div></div>} {!assessorEditorOpen&&!db.assessors.length&&<div className="empty assessor-empty">Nenhum contato cadastrado. Clique em <b>“Adicionar contato”</b> para incluir o primeiro.</div>}{db.assessors.map(a=><div className="assessor-admin-row" key={a.id}><div className="assessor-info"><b>{a.name}</b>{a.role&&<small>{a.role}</small>}{a.phone&&<span>☎ {a.phone}</span>}{a.email&&<span>✉ {a.email}</span>}{a.notes&&<em>{a.notes}</em>}</div><div className="assessor-actions"><button className="outline" onClick={()=>editAssessor(a)}>Editar</button><button className="danger" onClick={()=>removeAssessor(a.id)}>Excluir</button></div></div>)}</div>;

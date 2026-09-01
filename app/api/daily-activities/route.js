@@ -65,6 +65,11 @@ export async function GET(request) {
     const session = sessionFromRequest(request);
     if (!session || !["admin", "leader"].includes(session.role)) return fail("Faça login para continuar.", 401);
     const db = supabaseAdmin();
+    if (session.role === "leader") {
+      const { data: leader, error: accessError } = await db.from("leaderships").select("id,archived_at").eq("id", session.id).maybeSingle();
+      if (accessError) throw accessError;
+      if (!leader || leader.archived_at) return fail("Este cadastro está arquivado. Entre em contato com a coordenação.", 403);
+    }
     let recordsQuery = db.from("daily_activity_records").select("*").order("created_at", { ascending: false });
     if (session.role === "leader") recordsQuery = recordsQuery.eq("leadership_id", session.id);
     const [recordsResult, leadershipsResult] = await Promise.all([
@@ -88,6 +93,10 @@ export async function POST(request) {
   try {
     const session = sessionFromRequest(request);
     if (!session || session.role !== "leader") return fail("Somente lideranças podem registrar atividades.", 403);
+    const db = supabaseAdmin();
+    const { data: activeLeader, error: accessError } = await db.from("leaderships").select("id,archived_at").eq("id", session.id).maybeSingle();
+    if (accessError) throw accessError;
+    if (!activeLeader || activeLeader.archived_at) return fail("Este cadastro está arquivado. Entre em contato com a coordenação.", 403);
     const form = await request.formData();
     const description = String(form.get("description") || "").trim();
     const files = form.getAll("images").filter((item) => item instanceof File && item.size > 0);
@@ -97,7 +106,6 @@ export async function POST(request) {
       if (!ALLOWED_TYPES.has(file.type)) return fail("Use somente imagens JPG, PNG ou WebP.");
       if (file.size > MAX_IMAGE_BYTES) return fail("Uma das imagens ficou muito grande. Selecione-a novamente para reduzir o tamanho.");
     }
-    const db = supabaseAdmin();
     const usedToday = await dailyImageCount(db, session.id);
     if (usedToday + files.length > MAX_DAILY_IMAGES) return fail(`Você já registrou ${usedToday} imagem(ns) hoje. Restam ${Math.max(0, MAX_DAILY_IMAGES - usedToday)}.`);
     recordId = crypto.randomUUID();

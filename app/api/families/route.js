@@ -56,11 +56,20 @@ function scoped(query, session) {
   return query.eq("activist_id", session.id).eq("leadership_id", session.leadershipId);
 }
 
+async function archivedLeadership(db, session) {
+  const leadershipId = session.role === "leader" ? session.id : session.role === "activist" ? session.leadershipId : null;
+  if (!leadershipId) return false;
+  const { data, error } = await db.from("leaderships").select("id,archived_at").eq("id", leadershipId).maybeSingle();
+  if (error) throw error;
+  return !data || Boolean(data.archived_at);
+}
+
 export async function GET(request) {
   try {
     const session = familySession(request);
     if (!session) return fail("Acesso não autorizado.", 401);
     const db = supabaseAdmin();
+    if (await archivedLeadership(db, session)) return fail("Este cadastro está arquivado. Entre em contato com a coordenação.", 403);
     const { data, error } = await scoped(db.from("families").select("*").order("created_at", { ascending: false }), session);
     if (error) throw error;
     return NextResponse.json({ items: data.map(family), role: session.role }, { headers: { "Cache-Control": "no-store" } });
@@ -76,6 +85,7 @@ export async function POST(request) {
     if (!session) return fail("Acesso não autorizado.", 401);
     const body = await request.json();
     const db = supabaseAdmin();
+    if (await archivedLeadership(db, session)) return fail("Este cadastro está arquivado. Entre em contato com a coordenação.", 403);
 
     if (body.action === "save") {
       const next = values(body);

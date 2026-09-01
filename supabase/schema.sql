@@ -41,13 +41,14 @@ create table if not exists public.leaderships (
   pix_name text,
   bank text,
   password_hash text not null,
+  archived_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 create table if not exists public.activists (
   id uuid primary key default gen_random_uuid(),
-  leadership_id uuid not null references public.leaderships(id) on delete restrict,
+  leadership_id uuid not null references public.leaderships(id) on delete cascade,
   name text not null,
   birth date,
   cpf text not null unique,
@@ -69,8 +70,8 @@ create table if not exists public.activists (
 
 create table if not exists public.families (
   id uuid primary key default gen_random_uuid(),
-  activist_id uuid not null references public.activists(id) on delete restrict,
-  leadership_id uuid not null references public.leaderships(id) on delete restrict,
+  activist_id uuid not null references public.activists(id) on delete cascade,
+  leadership_id uuid not null references public.leaderships(id) on delete cascade,
   name text not null,
   birth date,
   cpf text not null unique,
@@ -102,6 +103,7 @@ create index if not exists activists_leadership_id_idx on public.activists(leade
 create index if not exists families_activist_id_idx on public.families(activist_id);
 create index if not exists families_leadership_id_idx on public.families(leadership_id);
 create index if not exists leaderships_neighborhood_idx on public.leaderships(neighborhood);
+create index if not exists leaderships_archived_at_idx on public.leaderships(archived_at);
 create index if not exists activists_neighborhood_idx on public.activists(neighborhood);
 create index if not exists families_neighborhood_idx on public.families(neighborhood);
 

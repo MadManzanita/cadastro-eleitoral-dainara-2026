@@ -26,6 +26,9 @@ export async function POST(request) {
       const leadershipId = String(body.leadershipId || "");
       const cpf = normalizeCpf(body.cpf);
       if (!leadershipId || cpf.length !== 11) return fail("Informe um CPF de ativista válido.");
+      const { data: leader, error: leaderError } = await db.from("leaderships").select("id,archived_at").eq("id", leadershipId).maybeSingle();
+      if (leaderError) throw leaderError;
+      if (!leader || leader.archived_at) return fail("Este cadastro está arquivado. Entre em contato com a coordenação.", 403);
 
       const { data: activist, error } = await db.from("activists").select("id,phone")
         .eq("cpf", cpf).eq("leadership_id", leadershipId).maybeSingle();
@@ -69,6 +72,9 @@ export async function POST(request) {
       const { data: challenge, error } = await db.from("sms_challenges").select("*").eq("id", challengeId).maybeSingle();
       if (error) throw error;
       if (!challenge || challenge.consumed_at || new Date(challenge.expires_at).getTime() < Date.now()) return fail("Código expirado. Solicite um novo.", 410);
+      const { data: leader, error: leaderError } = await db.from("leaderships").select("id,archived_at").eq("id", challenge.leadership_id).maybeSingle();
+      if (leaderError) throw leaderError;
+      if (!leader || leader.archived_at) return fail("Este cadastro está arquivado. Entre em contato com a coordenação.", 403);
       if ((challenge.attempts || 0) >= 5) return fail("Limite de tentativas atingido. Solicite um novo código.", 429);
 
       await db.from("sms_challenges").update({ attempts: (challenge.attempts || 0) + 1 }).eq("id", challenge.id);

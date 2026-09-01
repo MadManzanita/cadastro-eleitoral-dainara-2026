@@ -11,7 +11,8 @@ function leadership(row) {
     id: row.id, name: row.name, birth: row.birth, cpf: row.cpf, phone: row.phone,
     address: row.address, mother: row.mother, email: row.email, neighborhood: row.neighborhood,
     cep: row.cep, title: row.title, zone: row.electoral_zone, section: row.electoral_section,
-    pix: row.pix, pixname: row.name, bank: row.bank, created: row.created_at, updated: row.updated_at
+    pix: row.pix, pixname: row.name, bank: row.bank, archivedAt: row.archived_at || null,
+    created: row.created_at, updated: row.updated_at
   };
 }
 function activist(row) {
@@ -43,6 +44,11 @@ export async function GET(request) {
     const session = sessionFromRequest(request);
     if (!session || !["admin", "leader"].includes(session.role)) return fail("Faça login para acessar os dados.", 401);
     const db = supabaseAdmin();
+    if (session.role === "leader") {
+      const { data: currentLeader, error: accessError } = await db.from("leaderships").select("id,archived_at").eq("id", session.id).maybeSingle();
+      if (accessError) throw accessError;
+      if (!currentLeader || currentLeader.archived_at) return fail("Este cadastro está arquivado. Entre em contato com a coordenação.", 403);
+    }
     const leadershipQuery = session.role === "admin"
       ? db.from("leaderships").select("*").order("created_at", { ascending: false })
       : db.from("leaderships").select("*").eq("id", session.id);
@@ -59,14 +65,21 @@ export async function GET(request) {
     ]);
     const issue = [leaderships, activists, assessors, admins, families].find((result) => result.error)?.error;
     if (issue) throw issue;
+    const allLeaderships = leaderships.data.map(leadership);
+    const activeLeadershipIds = new Set(allLeaderships.filter((item) => !item.archivedAt).map((item) => item.id));
+    const allActivists = activists.data.map(activist);
+    const allFamilies = families.data.map(family);
     return NextResponse.json({
       session,
       db: {
-        leaderships: leaderships.data.map(leadership),
-        activists: activists.data.map(activist),
+        leaderships: allLeaderships.filter((item) => !item.archivedAt),
+        archivedLeaderships: session.role === "admin" ? allLeaderships.filter((item) => item.archivedAt) : [],
+        activists: allActivists.filter((item) => activeLeadershipIds.has(item.leaderId)),
+        archivedActivists: session.role === "admin" ? allActivists.filter((item) => !activeLeadershipIds.has(item.leaderId)) : [],
         assessors: assessors.data.map(assessor),
         admins: admins.data.map(admin),
-        families: families.data.map(family)
+        families: allFamilies.filter((item) => activeLeadershipIds.has(item.leaderId)),
+        archivedFamilies: session.role === "admin" ? allFamilies.filter((item) => !activeLeadershipIds.has(item.leaderId)) : []
       }
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (cause) {
@@ -92,6 +105,51 @@ export async function POST(request) {
     if (!session || !["admin", "leader"].includes(session.role)) return fail("Faça login para continuar.", 401);
     const body = await request.json();
     const db = supabaseAdmin();
+    if (session.role === "leader") {
+      const { data: currentLeader, error: accessError } = await db.from("leaderships").select("id,archived_at").eq("id", session.id).maybeSingle();
+      if (accessError) throw accessError;
+      if (!currentLeader || currentLeader.archived_at) return fail("Este cadastro está arquivado. Entre em contato com a coordenação.", 403);
+    }
+
+    if (body.action === "archive-leadership") {
+      if (session.role !== "admin") return fail("Acesso não autorizado.", 403);
+      const id = String(body.id || "");
+      if (!id) return fail("Informe a liderança que será arquivada.");
+      const { data, error } = await db.from("leaderships").update({ archived_at: new Date().toISOString() }).eq("id", id).is("archived_at", null).select("*").single();
+      if (error) throw error;
+      return NextResponse.json({ item: leadership(data) });
+    }
+
+    if (body.action === "restore-leadership") {
+      if (session.role !== "admin") return fail("Acesso não autorizado.", 403);
+      const id = String(body.id || "");
+      if (!id) return fail("Informe a liderança que será restaurada.");
+      const { data, error } = await db.from("leaderships").update({ archived_at: null }).eq("id", id).select("*").single();
+      if (error) throw error;
+      return NextResponse.json({ item: leadership(data) });
+    }
+
+    if (body.action === "delete-leadership") {
+      if (session.role !== "admin") return fail("Acesso não autorizado.", 403);
+      const id = String(body.id || "");
+      if (!id) return fail("Informe a liderança que será excluída.");
+      const { data: records, error: recordsError } = await db.from("daily_activity_records").select("id").eq("leadership_id", id);
+      const activityTablesUnavailable = recordsError && ["42P01", "PGRST205"].includes(recordsError.code);
+      if (recordsError && !activityTablesUnavailable) throw recordsError;
+      let storagePaths = [];
+      if (records?.length) {
+        const { data: images, error: imagesError } = await db.from("daily_activity_images").select("storage_path").in("record_id", records.map((record) => record.id));
+        if (imagesError) throw imagesError;
+        storagePaths = images.map((image) => image.storage_path);
+      }
+      const { data, error } = await db.from("leaderships").delete().eq("id", id).select("id").single();
+      if (error) throw error;
+      if (storagePaths.length) {
+        const { error: storageError } = await db.storage.from("daily-activities").remove(storagePaths);
+        if (storageError) console.error("leadership storage cleanup", storageError);
+      }
+      return NextResponse.json({ ok: true, id: data.id });
+    }
 
     if (body.action === "save-leadership") {
       if (session.role !== "admin") return fail("Somente a coordenação pode cadastrar lideranças.", 403);
