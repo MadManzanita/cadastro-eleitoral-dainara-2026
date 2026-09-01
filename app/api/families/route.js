@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { sessionFromRequest, supabaseAdmin, verifySession } from "../../../lib/server-auth";
+import { isDuplicateRegistration } from "../../../lib/database-errors";
 
 export const runtime = "nodejs";
 const fail = (error, status = 400) => NextResponse.json({ error }, { status });
@@ -117,6 +118,7 @@ export async function POST(request) {
     return fail("Ação inválida.", 404);
   } catch (cause) {
     console.error("families write", cause);
+    if (isDuplicateRegistration(cause)) return fail("Esse cadastro já existe.", 409);
     return fail("Não foi possível concluir a operação.", 500);
   }
 }

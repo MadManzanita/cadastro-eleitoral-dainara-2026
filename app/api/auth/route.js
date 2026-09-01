@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { hashPassword, normalizeCpf, sessionCookie, sessionFromRequest, signSession, supabaseAdmin, verifyPassword } from "../../../lib/server-auth";
+import { isDuplicateRegistration } from "../../../lib/database-errors";
 
 export const runtime = "nodejs";
 const json = (body, status = 200) => NextResponse.json(body, { status });
@@ -113,6 +114,7 @@ export async function POST(request) {
     return error("Ação inválida.", 404);
   } catch (cause) {
     console.error("auth route diagnostic", stage, JSON.stringify({ name: cause?.name, message: cause?.message, code: cause?.code, status: cause?.status, details: cause?.details, hint: cause?.hint, keys: Object.keys(cause || {}) }));
+    if (isDuplicateRegistration(cause)) return error("Esse cadastro já existe.", 409);
     return error(`Não foi possível concluir a operação na etapa: ${stage}.`, 500);
   }
 }
