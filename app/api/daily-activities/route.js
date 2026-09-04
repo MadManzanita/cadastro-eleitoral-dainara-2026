@@ -157,3 +157,31 @@ export async function PATCH(request) {
     return fail("Não foi possível deferir o registro.", 500);
   }
 }
+
+export async function DELETE(request) {
+  try {
+    const session = sessionFromRequest(request);
+    if (!session || session.role !== "admin") return fail("Somente administradores podem excluir registros.", 403);
+    const id = new URL(request.url).searchParams.get("id");
+    if (!id) return fail("Informe o registro que deve ser excluído.");
+    const db = supabaseAdmin();
+    const { data: record, error: recordError } = await db.from("daily_activity_records")
+      .select("id").eq("id", id).maybeSingle();
+    if (recordError) throw recordError;
+    if (!record) return fail("Registro de atividade não encontrado.", 404);
+    const { data: images, error: imagesError } = await db.from("daily_activity_images")
+      .select("storage_path").eq("record_id", id);
+    if (imagesError) throw imagesError;
+    const paths = images.map((image) => image.storage_path).filter(Boolean);
+    const { error: deleteError } = await db.from("daily_activity_records").delete().eq("id", id);
+    if (deleteError) throw deleteError;
+    if (paths.length) {
+      const { error: storageError } = await db.storage.from(BUCKET).remove(paths);
+      if (storageError) console.error("daily activities storage cleanup", storageError);
+    }
+    return NextResponse.json({ id: record.id });
+  } catch (cause) {
+    console.error("daily activities DELETE", cause);
+    return fail("Não foi possível excluir o registro de atividade.", 500);
+  }
+}
