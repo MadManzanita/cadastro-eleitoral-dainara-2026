@@ -11,8 +11,10 @@ function family(row) {
     id: row.id, activistId: row.activist_id, leaderId: row.leadership_id,
     name: row.name, birth: row.birth, cpf: row.cpf, phone: row.phone,
     address: row.address, mother: row.mother, email: row.email,
-    neighborhood: row.neighborhood, cep: row.cep, title: row.title,
+    municipality: row.municipality, neighborhood: row.neighborhood,
+    manausZone: row.manaus_zone, cep: row.cep, title: row.title,
     zone: row.electoral_zone, section: row.electoral_section,
+    sourceRole: row.activist_id ? "activist" : "leader",
     created: row.created_at, updated: row.updated_at
   };
 }
@@ -29,12 +31,14 @@ function values(body) {
   return {
     name: String(body.name || "").trim().toUpperCase(),
     birth: body.birth || null,
-    cpf: digits(body.cpf),
+    cpf: digits(body.cpf) || null,
     phone: digits(body.phone) || null,
     address: String(body.address || "").trim().toUpperCase() || null,
     mother: String(body.mother || "").trim().toUpperCase() || null,
     email: String(body.email || "").trim() || null,
+    municipality: String(body.municipality || "").trim() || null,
     neighborhood: String(body.neighborhood || "").trim() || null,
+    manaus_zone: String(body.manausZone || "").trim() || null,
     cep: digits(body.cep) || null,
     title: digits(body.title).slice(0, 12) || null,
     electoral_zone: digits(body.zone).slice(0, 3) || null,
@@ -89,7 +93,10 @@ export async function POST(request) {
 
     if (body.action === "save") {
       const next = values(body);
-      if (!next.name || next.cpf.length !== 11) return fail("Informe nome e CPF válidos.");
+      if (!next.name || !next.address || !next.municipality || !next.neighborhood) {
+        return fail("Informe nome, endereço, município e bairro/localidade.");
+      }
+      if (next.cpf && next.cpf.length !== 11) return fail("O CPF informado é inválido.");
       if (body.id) {
         const currentResult = await scoped(db.from("families").select("*").eq("id", body.id), session).maybeSingle();
         if (currentResult.error) throw currentResult.error;
@@ -99,8 +106,11 @@ export async function POST(request) {
         await audit(db, session, "update", data);
         return NextResponse.json({ item: family(data) });
       }
-      if (session.role !== "activist") return fail("O novo cadastro deve ser iniciado pelo link da liderança.", 403);
-      const { data, error } = await db.from("families").insert({ ...next, activist_id: session.id, leadership_id: session.leadershipId }).select("*").single();
+      if (!['activist', 'leader'].includes(session.role)) return fail("Acesso não autorizado.", 403);
+      const ownership = session.role === "activist"
+        ? { activist_id: session.id, leadership_id: session.leadershipId }
+        : { activist_id: null, leadership_id: session.id };
+      const { data, error } = await db.from("families").insert({ ...next, ...ownership }).select("*").single();
       if (error) throw error;
       await audit(db, session, "create", data);
       return NextResponse.json({ item: family(data) }, { status: 201 });

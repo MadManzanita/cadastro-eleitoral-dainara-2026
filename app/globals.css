@@ -2,6 +2,7 @@
 .assessor-modal-backdrop{position:fixed;inset:0;z-index:1000;background:rgba(54,28,42,.34);display:flex;align-items:center;justify-content:center;padding:24px}
 .assessor-modal{width:min(760px,100%);max-height:90vh;overflow:auto;background:#fff;border:1px solid #f0c8d8;border-radius:22px;box-shadow:0 24px 70px rgba(54,28,42,.2)}
 .assessor-modal .assessor-editor{margin:0;border:0;box-shadow:none}
+.trust-origin-group{margin-top:20px;border:1px solid #efd5df;border-radius:16px;overflow:hidden;background:#fff}.trust-origin-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:17px 18px;background:#fff8fa;border-bottom:1px solid #f2e2e7}.trust-origin-head h3{margin:0 0 4px}.trust-origin-head p{margin:0;font-size:13px}.trust-origin-head>span{display:grid;place-items:center;min-width:34px;height:34px;padding:0 10px;border-radius:999px;background:#f6dbe5;color:#9f4d69;font-weight:900}.trust-origin-group .assessor-admin-row{padding-left:18px;padding-right:18px}.empty.compact{padding:20px 10px}
 .assessor-modal .editor-title{position:sticky;top:0;background:#fff;z-index:2}
 
 .case-preserving-input{text-transform:none!important;text-transform:initial!important}.field-hint{margin-top:-2px;color:#94727e;font-size:12px;line-height:1.35}.field input:disabled{background:#f7f0f3;color:#66545b;cursor:not-allowed;opacity:1}

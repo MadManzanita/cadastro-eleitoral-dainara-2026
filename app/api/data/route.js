@@ -28,8 +28,10 @@ function family(row) {
   return {
     id: row.id, activistId: row.activist_id, leaderId: row.leadership_id, name: row.name,
     birth: row.birth, cpf: row.cpf, phone: row.phone, address: row.address, mother: row.mother,
-    email: row.email, neighborhood: row.neighborhood, cep: row.cep, title: row.title,
-    zone: row.electoral_zone, section: row.electoral_section, created: row.created_at, updated: row.updated_at
+    email: row.email, municipality: row.municipality, neighborhood: row.neighborhood,
+    manausZone: row.manaus_zone, cep: row.cep, title: row.title,
+    zone: row.electoral_zone, section: row.electoral_section,
+    sourceRole: row.activist_id ? "activist" : "leader", created: row.created_at, updated: row.updated_at
   };
 }
 function assessor(row) {
