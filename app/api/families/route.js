@@ -24,7 +24,7 @@ function familySession(request) {
   if (session) return session;
   const token = request.cookies.get("cadastro_family_session")?.value;
   const activist = verifySession(token);
-  return activist?.role === "activist" ? activist : null;
+  return activist?.role === "activist" && activist.authMethod === "password-v1" ? activist : null;
 }
 
 function values(body) {
@@ -142,3 +142,4 @@ export async function POST(request) {
     return fail("Não foi possível concluir a operação.", 500);
   }
 }
+
