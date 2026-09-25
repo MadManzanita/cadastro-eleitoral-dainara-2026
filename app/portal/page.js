@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AMAZONAS_MUNICIPALITIES, AMAZONAS_TERRITORIES, MANAUS_ZONES, getManausZone } from "../data/territories";
 import { PIX_BANKS } from "../data/banks";
 import ActivityRecords from "./ActivityRecords";
+import PasswordRecovery from "../components/PasswordRecovery";
 
 const TSE = "https://www.tse.jus.br/servicos-eleitorais/autoatendimento-eleitoral";
 const KEY = "cadastro-eleitoral-dainara-2026-v9";
@@ -328,6 +329,8 @@ function Form({ kind, f, setF, save, back, msg, edit, admin, leaderships, leader
 }
 
 function Access({ admin, release, cpf, setCpf, password, setPassword, code, setCode, msg, onEnter, onBack, onSwitch }) {
+  const [recovering, setRecovering] = useState(false);
+  if (recovering) return <PasswordRecovery role="leader" initialCpf={cpf} onBack={() => { setRecovering(false); setPassword(""); }} />;
   return (
     <main className="shell">
       <section className="card auth-card">
@@ -357,6 +360,7 @@ function Access({ admin, release, cpf, setCpf, password, setPassword, code, setC
         <button className="primary" onClick={onEnter}>
           {release ? "Continuar" : "Entrar"}
         </button>
+        {!admin && !release && <button type="button" className="link-button" onClick={() => setRecovering(true)}>Esqueci minha senha</button>}
         {release && <div className="auth-note">Use o código de configuração definido pela coordenação.</div>}
         <button className="link-button" onClick={onSwitch}>
           {release ? (admin ? "Voltar ao acesso administrativo" : "Já sou liderança") : admin ? "Se tornar administrador" : "Se torne liderança"}
