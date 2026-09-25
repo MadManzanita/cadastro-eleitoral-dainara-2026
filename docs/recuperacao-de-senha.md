@@ -4,7 +4,7 @@ Inclui liderança (`/portal`) e ativista (`/familia?lideranca=...`). Não altera
 
 ## Ativação
 
-1. Aplicar `supabase/migrations/008_password_recovery.sql` no SQL Editor do **mesmo projeto Supabase usado pelo site**, depois das migrações 001–007 existentes. A migração cria tabelas e funções exclusivas da recuperação e não apaga cadastros.
+1. Aplicar `supabase/migrations/008_password_recovery.sql` e depois `009_password_recovery_steps.sql` no SQL Editor do **mesmo projeto Supabase usado pelo site**, depois das migrações 001–007 existentes. As migrações criam tabelas e funções exclusivas da recuperação e não apagam cadastros.
 2. Na Vercel, conferir `SMSGO_KEY` nas variáveis do servidor para Production. Usar a chave da conta SMSGo com créditos; não colocar no GitHub, no navegador, nem em variável com prefixo `NEXT_PUBLIC_`. Se houver Preview, usar a chave de teste e banco de teste nesse ambiente.
 3. Manter `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SECRET_KEY` e `SESSION_SECRET` já usados pelo site. A última precisa ter pelo menos 32 caracteres. Não trocar a chave de sessão existente apenas para esta instalação.
 4. Publicar os arquivos e realizar um novo deploy na Vercel.
@@ -16,6 +16,7 @@ Inclui liderança (`/portal`) e ativista (`/familia?lideranca=...`). Não altera
 - CPF identifica a conta; para ativistas, o vínculo da liderança vem do link.
 - O código de seis números vai **somente** para o celular que já está no cadastro, com DDD brasileiro. O formulário não aceita um telefone alternativo.
 - A nova senha mantém o formato atual de oito números, com confirmação.
+- O fluxo tem três telas: solicitar SMS, validar código e definir senha. A terceira tela só abre depois da validação no servidor. O código é trocado por uma autorização aleatória de uso único, válida por mais cinco minutos, mantida apenas na memória da tela.
 - Validade de cinco minutos, até cinco tentativas. Reenviar invalida o código anterior.
 - Limite de uma solicitação por minuto e cinco por hora por conta; até vinte por hora por IP. O telefone também tem limite de cinco envios por hora, compartilhado entre contas.
 - Apenas hashes dos códigos ficam no banco; a validação e a troca da credencial acontecem na mesma transação. As tabelas/funções não são acessíveis por usuários anônimos ou autenticados comuns.

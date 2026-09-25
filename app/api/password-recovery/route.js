@@ -15,17 +15,31 @@ export async function POST(request) {
     if (!request.headers.get("content-type")?.includes("application/json")) return json({ error: "Formato inválido." }, 415);
     const body = await request.json();
     const db = supabaseAdmin();
-    if (body.action === "reset") {
-      if (!uuid(body.challengeId) || !/^\d{6}$/.test(String(body.code || "")) || !validPassword(body.password)) {
-        return json({ error: "Informe o código de 6 números e uma nova senha de 8 números." }, 400);
+    if (body.action === "verify") {
+      if (!uuid(body.challengeId) || !/^\d{6}$/.test(String(body.code || ""))) {
+        return json({ error: "Informe o código de 6 números recebido por SMS." }, 400);
       }
-      const { data, error } = await db.rpc("complete_password_recovery", {
+      const resetToken = crypto.randomBytes(32).toString("hex");
+      const { data, error } = await db.rpc("verify_password_recovery_code", {
         p_id: body.challengeId,
         p_code_hash: recoveryHash(`${body.challengeId}:${body.code}`),
-        p_password_hash: hashPassword(body.password),
+        p_token_hash: recoveryHash(`${body.challengeId}:${resetToken}`),
       });
       if (error) throw error;
       if (!data) return json({ error: "Código incorreto, expirado ou já utilizado. Confira o código ou solicite outro." }, 400);
+      return json({ resetToken });
+    }
+    if (body.action === "reset") {
+      if (!uuid(body.challengeId) || !/^[0-9a-f]{64}$/.test(String(body.resetToken || "")) || !validPassword(body.password)) {
+        return json({ error: "Valide o código primeiro e informe uma nova senha de 8 números." }, 400);
+      }
+      const { data, error } = await db.rpc("complete_password_recovery", {
+        p_id: body.challengeId,
+        p_code_hash: recoveryHash(`${body.challengeId}:${body.resetToken}`),
+        p_password_hash: hashPassword(body.password),
+      });
+      if (error) throw error;
+      if (!data) return json({ error: "A autorização expirou ou já foi utilizada. Solicite um novo código.", restart: true }, 400);
       return json({ ok: true });
     }
     if (body.action !== "request" || !["leader", "activist"].includes(body.role)) return json({ error: "Solicitação inválida." }, 400);

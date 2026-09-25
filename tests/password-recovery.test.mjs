@@ -31,6 +31,7 @@ test("PostgreSQL recovery transactions", async (t) => {
   const migration = await readFile(new URL("../supabase/migrations/008_password_recovery.sql", import.meta.url), "utf8");
   await db.exec(migration);
   await db.exec(migration); // Safe to reapply.
+  await db.exec(await readFile(new URL("../supabase/migrations/009_password_recovery_steps.sql", import.meta.url), "utf8"));
   await db.query("insert into leaderships values ($1, $2, null, 'old')", [leader, phone]);
   await db.query("insert into activists values ($1, $2, $3)", [activist, leader, phone]);
   const scalar = async (sql, args = []) => Object.values((await db.query(sql, args)).rows[0])[0];
@@ -41,6 +42,43 @@ test("PostgreSQL recovery transactions", async (t) => {
     return id;
   };
   const complete = (id, proof = "proof") => scalar("select complete_password_recovery($1,$2,$3)", [id, proof, passwordHash]);
+  const tokenHash = "c".repeat(64);
+  const verify = (id, proof = "proof") => scalar("select verify_password_recovery_code($1,$2,$3)", [id, proof, tokenHash]);
+  await t.test("validating code does not change password and exchanges proof for single-use token", async () => {
+    const id = await reserve();
+    assert.equal(await verify(id), true);
+    assert.equal(await scalar("select password_hash from leaderships where id=$1", [leader]), "old");
+    assert.equal(await verify(id), false);
+    assert.equal(await complete(id), false);
+    assert.equal(await complete(id, tokenHash), true);
+    assert.equal(await complete(id, tokenHash), false);
+  });
+  await t.test("wrong verification codes lock after five attempts", async () => {
+    const id = await reserve();
+    for (let i = 0; i < 5; i++) assert.equal(await verify(id, "wrong"), false);
+    assert.equal(await verify(id), false);
+  });
+  await t.test("expired code cannot issue a reset authorization", async () => {
+    const id = await reserve();
+    await db.query("update password_recovery_challenges set expires_at=now()-interval '1 second' where id=$1", [id]);
+    assert.equal(await verify(id), false);
+  });
+  await t.test("verified authorization expires and resend invalidates it", async () => {
+    const id = await reserve();
+    assert.equal(await verify(id), true);
+    await db.query("update password_recovery_challenges set expires_at=now()-interval '1 second' where id=$1", [id]);
+    assert.equal(await complete(id, tokenHash), false);
+    const next = await reserve();
+    assert.equal(await verify(next), true);
+    await reserve();
+    assert.equal(await complete(next, tokenHash), false);
+  });
+  await t.test("activist also requires the verified authorization at the final step", async () => {
+    const id = await reserve("activist", activist);
+    assert.equal(await verify(id), true);
+    assert.equal(await complete(id), false);
+    assert.equal(await complete(id, tokenHash), true);
+  });
   await t.test("leader password changes once; replay fails", async () => {
     const id = await reserve();
     assert.equal(await complete(id), true);
@@ -109,6 +147,7 @@ test("PostgreSQL recovery transactions", async (t) => {
     for (const role of ["anon", "authenticated"]) {
       assert.equal(await scalar("select has_table_privilege($1,'password_recovery_challenges','SELECT')", [role]), false);
       assert.equal(await scalar("select has_function_privilege($1,'complete_password_recovery(uuid,text,text)','EXECUTE')", [role]), false);
+      assert.equal(await scalar("select has_function_privilege($1,'verify_password_recovery_code(uuid,text,text)','EXECUTE')", [role]), false);
     }
   });
   await db.close();
