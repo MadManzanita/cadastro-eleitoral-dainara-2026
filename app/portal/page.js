@@ -732,7 +732,7 @@ function ManausCoverageMap({ db }) {
               onMouseEnter={() => setHovered(zone.name)}
               onMouseLeave={() => setHovered(null)}
             >
-              <title>{zone.name}: {counts[zone.name]} cadastro(s)</title>
+              <title>{zone.name + ": " + counts[zone.name] + " cadastro(s)"}</title>
             </path>
           ))}
           {MANAUS_MAP_ZONES.map((zone) => (
