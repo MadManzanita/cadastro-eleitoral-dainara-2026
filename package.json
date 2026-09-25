@@ -8,12 +8,15 @@
     "start": "next start"
   },
   "dependencies": {
+    "@orynlabs/smsgo": "latest",
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
     "next": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "xlsx-js-style": "1.2.0",
-    "@orynlabs/smsgo": "latest"
+    "xlsx-js-style": "1.2.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8"
   }
 }
