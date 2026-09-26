@@ -821,6 +821,7 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
     [notice, setNotice] = useState("");
   const families = db.families || [];
   const neighborhoods = [...new Set(families.map((x) => x.neighborhood).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const activistsForFilter = leaderFilter ? db.activists.filter((activist) => activist.leaderId === leaderFilter) : db.activists;
   const list = families.filter((item) => {
     const activist = db.activists.find((x) => x.id === item.activistId);
     const leader = db.leaderships.find((x) => x.id === item.leaderId);
@@ -959,21 +960,18 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
             <option value="activist">Ativista</option>
           </select>
         </label>
-        <label className="field">
-          <span>Filtrar por ativista</span>
-          <select value={activistFilter} onChange={(e) => setActivistFilter(e.target.value)}>
-            <option value="">Todos</option>
-            {db.activists.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </select>
-        </label>
         {admin && (
           <label className="field">
             <span>Filtrar por liderança</span>
-            <select value={leaderFilter} onChange={(e) => setLeaderFilter(e.target.value)}>
+            <select
+              value={leaderFilter}
+              onChange={(e) => {
+                const nextLeader = e.target.value;
+                setLeaderFilter(nextLeader);
+                const selectedActivist = db.activists.find((activist) => activist.id === activistFilter);
+                if (activistFilter && nextLeader && selectedActivist?.leaderId !== nextLeader) setActivistFilter("");
+              }}
+            >
               <option value="">Todas</option>
               {db.leaderships.map((l) => (
                 <option key={l.id} value={l.id}>
@@ -983,6 +981,17 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
             </select>
           </label>
         )}
+        <label className="field">
+          <span>Filtrar por ativista</span>
+          <select value={activistFilter} onChange={(e) => setActivistFilter(e.target.value)}>
+            <option value="">Todos</option>
+            {activistsForFilter.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="field">
           <span>Filtrar por bairro</span>
           <select value={neighborhoodFilter} onChange={(e) => setNeighborhoodFilter(e.target.value)}>
@@ -1862,11 +1871,21 @@ export default function Portal() {
   }
   const title = admin ? "Área Administrativa" : `Olá, ${leader?.name || "Liderança"}`;
   const credentialedActivists = db.activists.filter((item) => item.trustCredentialed).length;
+  const trustNetworkRegistrations = db.families.length;
+  const totalRegistrations = db.leaderships.length + db.activists.length + trustNetworkRegistrations;
   let content = null;
   if (view === "dashboard")
     content = admin ? (
       <>
         <div className="cards">
+          <div className="metric">
+            <div className="label">Total de cadastros</div>
+            <div className="value">{totalRegistrations}</div>
+          </div>
+          <div className="metric">
+            <div className="label">Rede de confiança</div>
+            <div className="value">{trustNetworkRegistrations}</div>
+          </div>
           <div className="metric">
             <div className="label">Lideranças</div>
             <div className="value">{db.leaderships.length}</div>
@@ -1924,6 +1943,14 @@ export default function Portal() {
     ) : (
       <>
         <div className="cards">
+          <div className="metric">
+            <div className="label">Total de cadastros</div>
+            <div className="value">{totalRegistrations}</div>
+          </div>
+          <div className="metric">
+            <div className="label">Rede de confiança</div>
+            <div className="value">{trustNetworkRegistrations}</div>
+          </div>
           <div className="metric">
             <div className="label">Meus ativistas</div>
             <div className="value">{mine.length}</div>
