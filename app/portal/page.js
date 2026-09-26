@@ -1498,6 +1498,28 @@ export default function Portal() {
       setMsg(error.message);
     }
   };
+  const deleteActivist = async (item) => {
+    const warning = `Excluir definitivamente ${item.name}? A Rede de confiança e a senha de acesso vinculadas a este ativista também serão excluídas. Esta ação não pode ser desfeita.`;
+    if (!window.confirm(warning)) return;
+    try {
+      await remote("/api/data", {
+        method: "POST",
+        body: JSON.stringify({ action: "delete-activist", id: item.id }),
+      });
+      setDb((current) => ({
+        ...current,
+        activists: current.activists.filter((activist) => activist.id !== item.id),
+        archivedActivists: current.archivedActivists.filter((activist) => activist.id !== item.id),
+        families: current.families.filter((family) => family.activistId !== item.id),
+        archivedFamilies: current.archivedFamilies.filter((family) => family.activistId !== item.id),
+      }));
+      setDetail(null);
+      setView("activists");
+      setMsg("Cadastro do ativista excluído.");
+    } catch (error) {
+      setMsg(error.message);
+    }
+  };
   const editAdmin = (item) => {
     setEditingAdmin(item);
     setAdminForm({ name: item.name || "", email: item.email || "" });
@@ -2152,6 +2174,11 @@ export default function Portal() {
         leader={l?.name}
         onBack={() => setView("activists")}
         onEdit={() => edit(a, "activist")}
+        actions={
+          <button className="danger" onClick={() => deleteActivist(a)}>
+            Excluir ativista
+          </button>
+        }
         credential={
           admin ? (
             <AdminActivistCredential

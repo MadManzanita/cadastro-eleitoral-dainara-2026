@@ -275,6 +275,23 @@ export async function POST(request) {
       return NextResponse.json({ item: activist(data) }, { status: 201 });
     }
 
+    if (body.action === "delete-activist") {
+      const id = String(body.id || "");
+      if (!id) return fail("Informe o ativista que será excluído.");
+
+      const ownership =
+        session.role === "admin"
+          ? db.from("activists").select("id,leadership_id").eq("id", id)
+          : db.from("activists").select("id,leadership_id").eq("id", id).eq("leadership_id", session.id);
+      const { data: owned, error: ownershipError } = await ownership.maybeSingle();
+      if (ownershipError) throw ownershipError;
+      if (!owned) return fail("Ativista não encontrado ou fora da sua liderança.", 403);
+
+      const { data, error } = await db.from("activists").delete().eq("id", owned.id).select("id").single();
+      if (error) throw error;
+      return NextResponse.json({ ok: true, id: data.id });
+    }
+
     if (body.action === "save-assessor") {
       if (session.role !== "admin") return fail("Acesso não autorizado.", 403);
       const values = {
