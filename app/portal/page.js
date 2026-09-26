@@ -691,6 +691,7 @@ function ManausCoverageMap({ db }) {
   const active = MANAUS_MAP_ZONES.find((zone) => zone.name === hovered);
 
   const getColor = (count, isActive) => {
+    if (count >= 200) return isActive ? "#b8860b" : "#d4af37";
     if (!count) return isActive ? "#ffedf5" : "#ffffff";
     if (count <= 10) return isActive ? "#f9c1d6" : "#fde1eb";
     if (count <= 50) return isActive ? "#de6591" : "#ee9ab5";
@@ -744,7 +745,7 @@ function ManausCoverageMap({ db }) {
               fontFamily="Arial, sans-serif"
               fontSize={10}
               fontWeight={600}
-              fill={counts[zone.name] > 50 ? "#ffffff" : "#673347"}
+              fill={counts[zone.name] >= 200 ? "#49383f" : counts[zone.name] > 50 ? "#ffffff" : "#673347"}
               pointerEvents="none"
             >
               <tspan x={zone.label[0]}>Zona</tspan>
@@ -787,7 +788,8 @@ function ManausCoverageMap({ db }) {
           ["0", "#fff"],
           ["1–10", "#fde1eb"],
           ["11–50", "#ee9ab5"],
-          ["51–100", "#c54672"],
+          ["51–199", "#c54672"],
+          ["200+", "#d4af37"],
         ].map(([label, swatch]) => (
           <span key={label} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
             <i
