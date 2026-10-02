@@ -65,6 +65,69 @@ test("activist data loads through its own session and remains scoped to its acco
   assert.equal((await route.GET(request)).status, 401);
 });
 
+test("activist context cannot inherit a simultaneous portal session", async (t) => {
+  let portal = { role: "leader", id: "other-leader" };
+  let activist = { role: "activist", authMethod: "password-v1", id: "activist", leadershipId: "leader" };
+  const inserted = [];
+  const filters = [];
+  const db = { from(table) {
+    let item = null;
+    return {
+      select() { return this; }, order() { return this; },
+      eq(field, value) { filters.push([table, field, value]); return this; },
+      insert(value) { item = value; if (table === "families") inserted.push(value); return this; },
+      single: async () => ({ data: { id: "test-family", ...item }, error: null }),
+      maybeSingle: async () => ({ data: { id: "leader", archived_at: null }, error: null }),
+      then(resolve) { return Promise.resolve({ data: [], error: null }).then(resolve); },
+    };
+  } };
+  const route = await loadRoute("../app/api/families/route.js", [
+    ['import { NextResponse } from "next/server";', 'const { NextResponse } = globalThis.__accessRegression;'],
+    ['import { sessionFromRequest, supabaseAdmin, verifySession } from "../../../lib/server-auth";', 'const { sessionFromRequest, supabaseAdmin, verifySession } = globalThis.__accessRegression;'],
+    ['import { isDuplicateRegistration } from "../../../lib/database-errors";', 'const { isDuplicateRegistration } = globalThis.__accessRegression;'],
+  ], { NextResponse, sessionFromRequest: () => portal, verifySession: () => activist, supabaseAdmin: () => db, ...errors });
+  const request = (context) => ({
+    headers: new Headers(context ? { "x-access-context": context } : {}),
+    cookies: { get: () => ({ value: "verified-by-test-stub" }) },
+    json: async () => ({ action: "save", name: "Test", address: "Test", municipality: "Test", neighborhood: "Test", activist_id: "forged", leadership_id: "forged" }),
+  });
+  await t.test("new records use the signed activist identity despite another leader cookie", async () => {
+    const response = await route.POST(request("activist"));
+    assert.equal(response.status, 201);
+    assert.equal(response.body.item.activistId, "activist");
+    assert.equal(inserted.at(-1).activist_id, "activist");
+    assert.equal(inserted.at(-1).leadership_id, "leader");
+  });
+  await t.test("administrator cookie also cannot override the activist", async () => {
+    portal = { role: "admin", id: "admin" };
+    assert.equal((await route.POST(request("activist"))).status, 201);
+    assert.equal(inserted.at(-1).activist_id, "activist");
+  });
+  await t.test("reading keeps both ownership filters with simultaneous sessions", async () => {
+    filters.length = 0;
+    assert.equal((await route.GET(request("activist"))).status, 200);
+    assert.ok(filters.some(([table, field, value]) => table === "families" && field === "activist_id" && value === "activist"));
+    assert.ok(filters.some(([table, field, value]) => table === "families" && field === "leadership_id" && value === "leader"));
+  });
+  await t.test("missing or wrong activist session fails closed instead of using administrator", async () => {
+    const count = inserted.length;
+    activist = null;
+    assert.equal((await route.POST(request("activist"))).status, 401);
+    assert.equal((await route.GET(request("activist"))).status, 401);
+    activist = { role: "leader", id: "forged" };
+    assert.equal((await route.POST(request("activist"))).status, 401);
+    assert.equal(inserted.length, count);
+  });
+  await t.test("portal leadership keeps its own identity; unsupported context is rejected", async () => {
+    portal = { role: "leader", id: "portal-leader" };
+    activist = { role: "activist", authMethod: "password-v1", id: "activist", leadershipId: "leader" };
+    assert.equal((await route.POST(request())).status, 201);
+    assert.equal(inserted.at(-1).activist_id, null);
+    assert.equal(inserted.at(-1).leadership_id, "portal-leader");
+    assert.equal((await route.POST(request("admin"))).status, 401);
+  });
+});
+
 test("SMS recovery refuses simulated delivery and consumes the challenge", async () => {
   let mode = "test";
   let consumed = 0;

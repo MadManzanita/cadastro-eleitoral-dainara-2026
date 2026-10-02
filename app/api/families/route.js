@@ -20,11 +20,16 @@ function family(row) {
 }
 
 function familySession(request) {
-  const session = sessionFromRequest(request);
-  if (session) return session;
+  const context = request.headers?.get("x-access-context");
   const token = request.cookies.get("cadastro_family_session")?.value;
-  const activist = verifySession(token);
-  return activist?.role === "activist" && activist.authMethod === "password-v1" ? activist : null;
+  const verified = verifySession(token);
+  const activist = verified?.role === "activist" && verified.authMethod === "password-v1" ? verified : null;
+  // The activist page must never inherit an administrator/leader session
+  // left open in another tab of the same browser.
+  if (context === "activist") return activist;
+  if (context) return null;
+  const session = sessionFromRequest(request);
+  return session || activist;
 }
 
 function values(body) {
