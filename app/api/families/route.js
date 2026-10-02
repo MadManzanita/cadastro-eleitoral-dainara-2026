@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 const fail = (error, status = 400) => NextResponse.json({ error }, { status });
 const digits = (value) => String(value || "").replace(/\D/g, "");
 
-function family(row) {
+function family(row, history = null) {
   return {
     id: row.id, activistId: row.activist_id, leaderId: row.leadership_id,
     name: row.name, birth: row.birth, cpf: row.cpf, phone: row.phone,
@@ -14,17 +14,21 @@ function family(row) {
     municipality: row.municipality, neighborhood: row.neighborhood,
     manausZone: row.manaus_zone, cep: row.cep, title: row.title,
     zone: row.electoral_zone, section: row.electoral_section,
-    sourceRole: row.activist_id ? "activist" : "leader",
+    sourceRole: history?.actor_role || (row.activist_id ? "activist" : "leader"),
+    transferredActivistId: history?.snapshot?.transferred_activist_id || null,
     created: row.created_at, updated: row.updated_at
   };
 }
 
 function familySession(request) {
+  const familyToken = request.cookies.get("cadastro_family_session")?.value;
+  const familyActor = verifySession(familyToken);
+  if (request.headers.get("x-trust-network-actor") === "activist") {
+    return familyActor?.role === "activist" && familyActor.authMethod === "password-v1" ? familyActor : null;
+  }
   const session = sessionFromRequest(request);
   if (session) return session;
-  const token = request.cookies.get("cadastro_family_session")?.value;
-  const activist = verifySession(token);
-  return activist?.role === "activist" && activist.authMethod === "password-v1" ? activist : null;
+  return familyActor?.role === "activist" && familyActor.authMethod === "password-v1" ? familyActor : null;
 }
 
 function values(body) {
@@ -76,7 +80,13 @@ export async function GET(request) {
     if (await archivedLeadership(db, session)) return fail("Este cadastro está arquivado. Entre em contato com a coordenação.", 403);
     const { data, error } = await scoped(db.from("families").select("*").order("created_at", { ascending: false }), session);
     if (error) throw error;
-    return NextResponse.json({ items: data.map(family), role: session.role }, { headers: { "Cache-Control": "no-store" } });
+    const historyByFamily = new Map();
+    if (data.length) {
+      const { data: histories, error: historyError } = await db.from("trust_network_history").select("family_id,actor_role,snapshot,created_at").eq("action", "create").in("family_id", data.map((item) => item.id)).order("created_at", { ascending: true });
+      if (historyError) throw historyError;
+      for (const item of histories || []) if (!historyByFamily.has(item.family_id)) historyByFamily.set(item.family_id, item);
+    }
+    return NextResponse.json({ items: data.map((item) => family(item, historyByFamily.get(item.id))), role: session.role }, { headers: { "Cache-Control": "no-store" } });
   } catch (cause) {
     console.error("families read", cause);
     return fail("Não foi possível carregar a Rede de confiança.", 500);
@@ -114,6 +124,54 @@ export async function POST(request) {
       if (error) throw error;
       await audit(db, session, "create", data);
       return NextResponse.json({ item: family(data) }, { status: 201 });
+    }
+
+    if (body.action === "transfer-activists") {
+      if (!['admin', 'leader'].includes(session.role)) return fail("Apenas liderança e administração podem transferir ativistas.", 403);
+      const activistIds = [...new Set((Array.isArray(body.activistIds) ? body.activistIds : []).map(String).filter(Boolean))];
+      if (!activistIds.length) return fail("Selecione pelo menos um ativista.");
+      let activistQuery = db.from("activists").select("*").in("id", activistIds);
+      if (session.role === "leader") activistQuery = activistQuery.eq("leadership_id", session.id);
+      const { data: activists, error: activistError } = await activistQuery;
+      if (activistError) throw activistError;
+      if (!activists.length) return fail("Nenhum ativista válido foi encontrado para transferência.", 404);
+      let historyQuery = db.from("trust_network_history").select("snapshot").eq("action", "create");
+      if (session.role === "leader") historyQuery = historyQuery.eq("leadership_id", session.id);
+      const cpfValues = activists.map((item) => item.cpf).filter(Boolean);
+      let existingFamilyQuery = db.from("families").select("cpf");
+      if (session.role === "leader") existingFamilyQuery = existingFamilyQuery.eq("leadership_id", session.id);
+      if (cpfValues.length) existingFamilyQuery = existingFamilyQuery.in("cpf", cpfValues);
+      else existingFamilyQuery = existingFamilyQuery.is("cpf", null).limit(0);
+      const [{ data: existing, error: existingError }, { data: existingFamilies, error: existingFamilyError }] = await Promise.all([historyQuery, existingFamilyQuery]);
+      if (existingError || existingFamilyError) throw existingError || existingFamilyError;
+      const alreadyTransferred = new Set((existing || []).map((item) => item.snapshot?.transferred_activist_id).filter(Boolean));
+      const existingCpfs = new Set((existingFamilies || []).map((item) => item.cpf).filter(Boolean));
+      const pending = activists.filter((item) => !alreadyTransferred.has(item.id) && !existingCpfs.has(item.cpf));
+      if (!pending.length) return fail("Os ativistas selecionados já estão na Rede de confiança.", 409);
+      const rows = pending.map((item) => ({
+        activist_id: null,
+        leadership_id: item.leadership_id,
+        name: item.name,
+        birth: item.birth,
+        cpf: item.cpf,
+        phone: item.phone,
+        address: item.address,
+        mother: item.mother,
+        email: item.email,
+        municipality: item.municipality || (item.neighborhood ? "Manaus" : null),
+        neighborhood: item.neighborhood,
+        manaus_zone: item.manaus_zone,
+        cep: item.cep,
+        title: item.title,
+        electoral_zone: item.electoral_zone,
+        electoral_section: item.electoral_section,
+      }));
+      const { data, error } = await db.from("families").insert(rows).select("*");
+      if (error) throw error;
+      for (let index = 0; index < data.length; index += 1) {
+        await audit(db, session, "create", { ...data[index], transferred_activist_id: pending[index].id });
+      }
+      return NextResponse.json({ items: data.map((item, index) => family(item, { actor_role: session.role, snapshot: { transferred_activist_id: pending[index].id } })), transferred: data.length, skipped: activists.length - data.length }, { status: 201 });
     }
 
     if (body.action === "delete") {

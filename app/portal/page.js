@@ -816,6 +816,8 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
     [leaderFilter, setLeaderFilter] = useState(""),
     [neighborhoodFilter, setNeighborhoodFilter] = useState(""),
     [originFilter, setOriginFilter] = useState(""),
+    [showTransfer, setShowTransfer] = useState(false),
+    [transferSelection, setTransferSelection] = useState([]),
     [editingFamily, setEditingFamily] = useState(null),
     [history, setHistory] = useState([]),
     [notice, setNotice] = useState("");
@@ -824,10 +826,11 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
   const activistsForFilter = leaderFilter ? db.activists.filter((activist) => activist.leaderId === leaderFilter) : db.activists;
   const list = families.filter((item) => {
     const activist = db.activists.find((x) => x.id === item.activistId);
+    const transferredActivist = db.activists.find((x) => x.id === item.transferredActivistId);
     const leader = db.leaderships.find((x) => x.id === item.leaderId);
-    const text = `${item.name} ${item.cpf} ${activist?.name || ""} ${leader?.name || ""}`.toLowerCase();
-    const origin = item.activistId ? "activist" : "leader";
-    return text.includes(query.toLowerCase()) && (!activistFilter || item.activistId === activistFilter) && (!leaderFilter || item.leaderId === leaderFilter) && (!neighborhoodFilter || item.neighborhood === neighborhoodFilter) && (!originFilter || origin === originFilter);
+    const text = `${item.name} ${item.cpf} ${activist?.name || ""} ${transferredActivist?.name || ""} ${leader?.name || ""}`.toLowerCase();
+    const origin = item.sourceRole === "activist" ? "activist" : "leader";
+    return text.includes(query.toLowerCase()) && (!activistFilter || item.activistId === activistFilter || item.transferredActivistId === activistFilter) && (!leaderFilter || item.leaderId === leaderFilter) && (!neighborhoodFilter || item.neighborhood === neighborhoodFilter) && (!originFilter || origin === originFilter);
   });
   const save = async (event) => {
     event.preventDefault();
@@ -883,8 +886,29 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
       setNotice(error.message);
     }
   };
+  const transferredActivistIds = new Set(families.map((item) => item.transferredActivistId).filter(Boolean));
+  const transferableActivists = db.activists.filter((activist) => !transferredActivistIds.has(activist.id));
+  const transferActivists = async () => {
+    if (!transferSelection.length) {
+      setNotice("Selecione pelo menos um ativista para transferir.");
+      return;
+    }
+    try {
+      const result = await remote("/api/families", {
+        method: "POST",
+        body: JSON.stringify({ action: "transfer-activists", activistIds: transferSelection }),
+      });
+      setDb((current) => ({ ...current, families: [...(result.items || []), ...current.families] }));
+      setTransferSelection([]);
+      setShowTransfer(false);
+      setNotice(`${result.transferred || 0} ativista(s) transferido(s) para a Rede de confiança.${result.skipped ? ` ${result.skipped} já estava(m) transferido(s).` : ""}`);
+    } catch (error) {
+      setNotice(error.message);
+    }
+  };
   const renderRow = (item) => {
     const activist = db.activists.find((x) => x.id === item.activistId);
+    const transferredActivist = db.activists.find((x) => x.id === item.transferredActivistId);
     const leader = db.leaderships.find((x) => x.id === item.leaderId);
     return (
       <div className="assessor-admin-row" key={item.id}>
@@ -893,7 +917,14 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
           <small>
             {item.cpf ? cpfBR(item.cpf) : "CPF não informado"} • {item.neighborhood || "Sem bairro"}
           </small>
-          <span>{item.activistId ? `Ativista responsável: ${activist?.name || "Não localizado"}` : `Cadastro direto da liderança: ${leader?.name || "Não localizada"}`}</span>
+          <span>
+            {item.sourceRole === "activist"
+              ? `Cadastrado pelo ativista: ${activist?.name || "Não localizado"}`
+              : item.sourceRole === "admin"
+                ? "Cadastrado pela administração"
+                : `Cadastrado pela liderança: ${leader?.name || "Não localizada"}`}
+          </span>
+          {item.transferredActivistId && <span>Transferido do cadastro do ativista: {transferredActivist?.name || "Não localizado"}</span>}
           <span>Liderança responsável: {leader?.name || "Não localizada"}</span>
         </div>
         <div className="assessor-actions">
@@ -919,15 +950,15 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
   const groups = [
     {
       key: "leader",
-      title: "Cadastros feitos pela liderança",
-      description: "Pessoas incluídas diretamente pela liderança responsável.",
-      items: list.filter((item) => !item.activistId),
+      title: "Cadastros feitos pela liderança ou administração",
+      description: "Pessoas incluídas diretamente ou transferidas para a Rede de confiança.",
+      items: list.filter((item) => item.sourceRole !== "activist"),
     },
     {
       key: "activist",
       title: "Cadastros feitos pelos ativistas",
       description: "Pessoas incluídas pelos ativistas através do link da liderança.",
-      items: list.filter((item) => item.activistId),
+      items: list.filter((item) => item.sourceRole === "activist"),
     },
   ];
   return (
@@ -937,6 +968,10 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
           <h2>Rede de confiança</h2>
           <p>{admin ? "Todas as redes cadastradas no sistema, organizadas pela origem do cadastro." : "Cadastros da própria liderança e dos ativistas vinculados, organizados separadamente."}</p>
         </div>
+        <div className="page-head-actions">
+          <button className="outline" onClick={() => setShowTransfer((current) => !current)}>
+            ⇄ Transferir ativistas
+          </button>
         {!admin && (
           <button
             className="primary"
@@ -949,7 +984,43 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
             ＋ Cadastrar pessoa
           </button>
         )}
+        </div>
       </div>
+      {showTransfer && (
+        <section className="trust-transfer-panel">
+          <div>
+            <h3>Transferir ativistas para a Rede de confiança</h3>
+            <p>Selecione os cadastros desejados. O acesso e o cadastro original do ativista serão preservados.</p>
+          </div>
+          {transferableActivists.length ? (
+            <>
+              <div className="trust-transfer-list">
+                {transferableActivists.map((activist) => {
+                  const leader = db.leaderships.find((item) => item.id === activist.leaderId);
+                  return (
+                    <label className="trust-transfer-item" key={activist.id}>
+                      <input
+                        type="checkbox"
+                        checked={transferSelection.includes(activist.id)}
+                        onChange={(event) =>
+                          setTransferSelection((current) =>
+                            event.target.checked ? [...current, activist.id] : current.filter((id) => id !== activist.id),
+                          )
+                        }
+                      />
+                      <span><b>{activist.name}</b><small>{admin ? leader?.name || "Sem liderança" : activist.neighborhood || "Bairro não informado"}</small></span>
+                    </label>
+                  );
+                })}
+              </div>
+              <div className="trust-transfer-actions">
+                <button type="button" className="outline" onClick={() => setTransferSelection(transferableActivists.map((item) => item.id))}>Selecionar todos</button>
+                <button type="button" className="primary" onClick={transferActivists}>Transferir selecionados ({transferSelection.length})</button>
+              </div>
+            </>
+          ) : <div className="empty compact">Todos os ativistas disponíveis já foram transferidos.</div>}
+        </section>
+      )}
       <input className="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por nome ou CPF..." />
       <div className="form-grid three">
         <label className="field">
