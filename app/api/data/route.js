@@ -54,7 +54,7 @@ function activist(row, credential) {
     updated: row.updated_at,
   };
 }
-function family(row) {
+function family(row, history = null) {
   return {
     id: row.id,
     activistId: row.activist_id,
@@ -73,7 +73,8 @@ function family(row) {
     title: row.title,
     zone: row.electoral_zone,
     section: row.electoral_section,
-    sourceRole: row.activist_id ? "activist" : "leader",
+    sourceRole: history?.actor_role || (row.activist_id ? "activist" : "leader"),
+    transferredActivistId: history?.snapshot?.transferred_activist_id || null,
     created: row.created_at,
     updated: row.updated_at,
   };
@@ -116,8 +117,9 @@ export async function GET(request) {
     const assessorQuery = db.from("assessors").select("*").order("created_at", { ascending: false });
     const familiesQuery = session.role === "admin" ? db.from("families").select("*").order("created_at", { ascending: false }) : db.from("families").select("*").eq("leadership_id", session.id).order("created_at", { ascending: false });
     const credentialsQuery = session.role === "admin" ? db.from("sms_challenges").select("activist_id,created_at").eq("phone", "TRUST_PASSWORD").order("created_at", { ascending: false }) : db.from("sms_challenges").select("activist_id,created_at").eq("phone", "TRUST_PASSWORD").eq("leadership_id", session.id).order("created_at", { ascending: false });
-    const [leaderships, activists, assessors, admins, families, credentials] = await Promise.all([leadershipQuery, activistsQuery, assessorQuery, session.role === "admin" ? db.from("admins").select("id,name,cpf,email,created_at,updated_at").order("created_at", { ascending: false }) : Promise.resolve({ data: [] }), familiesQuery, credentialsQuery]);
-    const issue = [leaderships, activists, assessors, admins, families, credentials].find((result) => result.error)?.error;
+    const historyQuery = session.role === "admin" ? db.from("trust_network_history").select("family_id,actor_role,snapshot,created_at").eq("action", "create").order("created_at", { ascending: true }) : db.from("trust_network_history").select("family_id,actor_role,snapshot,created_at").eq("action", "create").eq("leadership_id", session.id).order("created_at", { ascending: true });
+    const [leaderships, activists, assessors, admins, families, credentials, histories] = await Promise.all([leadershipQuery, activistsQuery, assessorQuery, session.role === "admin" ? db.from("admins").select("id,name,cpf,email,created_at,updated_at").order("created_at", { ascending: false }) : Promise.resolve({ data: [] }), familiesQuery, credentialsQuery, historyQuery]);
+    const issue = [leaderships, activists, assessors, admins, families, credentials, histories].find((result) => result.error)?.error;
     if (issue) throw issue;
     const allLeaderships = leaderships.data.map(leadership);
     const activeLeadershipIds = new Set(allLeaderships.filter((item) => !item.archivedAt).map((item) => item.id));
@@ -126,7 +128,9 @@ export async function GET(request) {
       if (!credentialByActivist.has(credential.activist_id)) credentialByActivist.set(credential.activist_id, credential);
     }
     const allActivists = activists.data.map((row) => activist(row, credentialByActivist.get(row.id)));
-    const allFamilies = families.data.map(family);
+    const historyByFamily = new Map();
+    for (const item of histories.data || []) if (!historyByFamily.has(item.family_id)) historyByFamily.set(item.family_id, item);
+    const allFamilies = families.data.map((row) => family(row, historyByFamily.get(row.id)));
     return NextResponse.json(
       {
         session,
