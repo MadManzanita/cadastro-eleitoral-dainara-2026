@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { sessionFromRequest, supabaseAdmin } from "../../../lib/server-auth";
-import { isDuplicateRegistration } from "../../../lib/database-errors";
+import { isDuplicateRegistration, isMissingOptionalHistory } from "../../../lib/database-errors";
 
 export const runtime = "nodejs";
 const fail = (error, status) => NextResponse.json({ error }, { status });
@@ -119,6 +119,13 @@ export async function GET(request) {
     const credentialsQuery = session.role === "admin" ? db.from("sms_challenges").select("activist_id,created_at").eq("phone", "TRUST_PASSWORD").order("created_at", { ascending: false }) : db.from("sms_challenges").select("activist_id,created_at").eq("phone", "TRUST_PASSWORD").eq("leadership_id", session.id).order("created_at", { ascending: false });
     const historyQuery = session.role === "admin" ? db.from("trust_network_history").select("family_id,actor_role,snapshot,created_at").eq("action", "create").order("created_at", { ascending: true }) : db.from("trust_network_history").select("family_id,actor_role,snapshot,created_at").eq("action", "create").eq("leadership_id", session.id).order("created_at", { ascending: true });
     const [leaderships, activists, assessors, admins, families, credentials, histories] = await Promise.all([leadershipQuery, activistsQuery, assessorQuery, session.role === "admin" ? db.from("admins").select("id,name,cpf,email,created_at,updated_at").order("created_at", { ascending: false }) : Promise.resolve({ data: [] }), familiesQuery, credentialsQuery, historyQuery]);
+    // Older databases may not have the optional audit history yet.
+    // Keep account access working; all other database errors still fail.
+    if (isMissingOptionalHistory(histories.error)) {
+      histories.data = [];
+      histories.error = null;
+      console.warn("data route: optional history unavailable");
+    }
     const issue = [leaderships, activists, assessors, admins, families, credentials, histories].find((result) => result.error)?.error;
     if (issue) throw issue;
     const allLeaderships = leaderships.data.map(leadership);
