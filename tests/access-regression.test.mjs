@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { fetchAllRows } from "../lib/database-pagination.mjs";
 
 async function loadRoute(path, imports, bindings) {
   let source = await readFile(new URL(path, import.meta.url), "utf8");
@@ -16,17 +17,24 @@ test("account data tolerates only the confirmed missing optional history table",
   const historyError = { code: "PGRST205", message: "Could not find the table 'public.trust_network_history' in the schema cache" };
   let failure = historyError;
   let role = "admin";
+  let savedRows = [];
   const db = { from(table) {
-    const result = { data: table === "leaderships" ? [{ id: "leader", name: "Test" }] : [], error: table === "trust_network_history" ? failure : null };
-    const chain = { select() { return this; }, order() { return this; }, eq() { return this; }, maybeSingle: async () => ({ data: { id: "leader", archived_at: null }, error: null }), then(resolve) { return Promise.resolve(result).then(resolve); } };
+    const result = { data: table === "leaderships" ? [{ id: "leader", name: "Test" }] : table === "families" ? savedRows : [], error: table === "trust_network_history" ? failure : null };
+    let offset = 0;
+    const chain = { range(from) { offset = from; return this; }, select() { return this; }, order() { return this; }, eq() { return this; }, maybeSingle: async () => ({ data: { id: "leader", archived_at: null }, error: null }), then(resolve) { return Promise.resolve({ ...result, data: result.data.slice(offset, offset + 500) }).then(resolve); } };
     return chain;
   } };
   const route = await loadRoute("../app/api/data/route.js", [
+    ['import { fetchAllRows } from "../../../lib/database-pagination.mjs";', 'const { fetchAllRows } = globalThis.__accessRegression;'],
     ['import { NextResponse } from "next/server";', 'const { NextResponse } = globalThis.__accessRegression;'],
     ['import { sessionFromRequest, supabaseAdmin } from "../../../lib/server-auth";', 'const { sessionFromRequest, supabaseAdmin } = globalThis.__accessRegression;'],
     ['import { isDuplicateRegistration, isMissingOptionalHistory } from "../../../lib/database-errors";', 'const { isDuplicateRegistration, isMissingOptionalHistory } = globalThis.__accessRegression;'],
-  ], { NextResponse, sessionFromRequest: () => ({ role, id: "leader" }), supabaseAdmin: () => db, ...errors });
+  ], { fetchAllRows, NextResponse, sessionFromRequest: () => ({ role, id: "leader" }), supabaseAdmin: () => db, ...errors });
   assert.equal((await route.GET({})).status, 200);
+  savedRows = Array.from({ length: 1237 }, (_, index) => ({ id: `record-${index}`, leadership_id: "leader", name: "Test" }));
+  const completeResponse = await route.GET({});
+  assert.equal(completeResponse.body.db.families.length, 1237);
+  assert.equal(new Set(completeResponse.body.db.families.map((item) => item.id)).size, 1237);
   role = "leader";
   const leaderResponse = await route.GET({});
   assert.equal(leaderResponse.status, 200);

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { sessionFromRequest, supabaseAdmin } from "../../../lib/server-auth";
+import { fetchAllRows } from "../../../lib/database-pagination.mjs";
 import { isDuplicateRegistration, isMissingOptionalHistory } from "../../../lib/database-errors";
 
 export const runtime = "nodejs";
@@ -118,7 +119,7 @@ export async function GET(request) {
     const familiesQuery = session.role === "admin" ? db.from("families").select("*").order("created_at", { ascending: false }) : db.from("families").select("*").eq("leadership_id", session.id).order("created_at", { ascending: false });
     const credentialsQuery = session.role === "admin" ? db.from("sms_challenges").select("activist_id,created_at").eq("phone", "TRUST_PASSWORD").order("created_at", { ascending: false }) : db.from("sms_challenges").select("activist_id,created_at").eq("phone", "TRUST_PASSWORD").eq("leadership_id", session.id).order("created_at", { ascending: false });
     const historyQuery = session.role === "admin" ? db.from("trust_network_history").select("family_id,actor_role,snapshot,created_at").eq("action", "create").order("created_at", { ascending: true }) : db.from("trust_network_history").select("family_id,actor_role,snapshot,created_at").eq("action", "create").eq("leadership_id", session.id).order("created_at", { ascending: true });
-    const [leaderships, activists, assessors, admins, families, credentials, histories] = await Promise.all([leadershipQuery, activistsQuery, assessorQuery, session.role === "admin" ? db.from("admins").select("id,name,cpf,email,created_at,updated_at").order("created_at", { ascending: false }) : Promise.resolve({ data: [] }), familiesQuery, credentialsQuery, historyQuery]);
+    const [leaderships, activists, assessors, admins, families, credentials, histories] = await Promise.all([fetchAllRows(leadershipQuery), fetchAllRows(activistsQuery), fetchAllRows(assessorQuery), session.role === "admin" ? fetchAllRows(db.from("admins").select("id,name,cpf,email,created_at,updated_at").order("created_at", { ascending: false })) : Promise.resolve({ data: [] }), fetchAllRows(familiesQuery), fetchAllRows(credentialsQuery), fetchAllRows(historyQuery)]);
     // Older databases may not have the optional audit history yet.
     // Keep account access working; all other database errors still fail.
     if (isMissingOptionalHistory(histories.error)) {

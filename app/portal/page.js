@@ -1196,7 +1196,7 @@ export default function Portal() {
     return payload;
   };
   const loadRemote = async () => {
-    const payload = await remote("/api/data");
+    const payload = await remote("/api/data", { cache: "no-store" });
     setDb({ ...fresh(), ...payload.db });
     return payload;
   };
@@ -1221,6 +1221,32 @@ export default function Portal() {
       active = false;
     };
   }, []);
+  useEffect(() => {
+    if (!["admin-area", "leader-area"].includes(mode) || !role) return;
+    let active = true;
+    let pending = false;
+    const refresh = async () => {
+      if (!active || pending || document.visibilityState !== "visible") return;
+      pending = true;
+      try {
+        const payload = await remote("/api/data", { cache: "no-store" });
+        if (active) setDb({ ...fresh(), ...payload.db });
+      } catch {
+        if (active) setMsg("Não foi possível atualizar os dados. Tente recarregar a página.");
+      } finally {
+        pending = false;
+      }
+    };
+    const timer = window.setInterval(refresh, 60000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [mode, role]);
   const go = (next) => {
     setMode(next);
     setMsg("");
