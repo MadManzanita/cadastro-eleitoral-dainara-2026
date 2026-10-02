@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { sessionFromRequest, supabaseAdmin, verifySession } from "../../../lib/server-auth";
+import { fetchAllRows } from "../../../lib/database-pagination.mjs";
 import { isDuplicateRegistration } from "../../../lib/database-errors";
 
 export const runtime = "nodejs";
@@ -52,11 +53,16 @@ function values(body) {
 }
 
 async function audit(db, session, action, item) {
-  const { error } = await db.from("trust_network_history").insert({
-    family_id: item.id, activist_id: item.activist_id, leadership_id: item.leadership_id,
-    actor_role: session.role, actor_id: session.id, action, snapshot: item
-  });
-  if (error) console.error("trust history", error.message);
+  try {
+    const { error } = await db.from("trust_network_history").insert({
+      family_id: item.id, activist_id: item.activist_id, leadership_id: item.leadership_id,
+      actor_role: session.role, actor_id: session.id, action, snapshot: item
+    });
+    if (error) console.error("trust history", error.message);
+  } catch (cause) {
+    // An optional audit failure must not report an already committed save as failed.
+    console.error("trust history unavailable", cause?.message);
+  }
 }
 
 function scoped(query, session) {
@@ -79,7 +85,7 @@ export async function GET(request) {
     if (!session) return fail("Acesso não autorizado.", 401);
     const db = supabaseAdmin();
     if (await archivedLeadership(db, session)) return fail("Este cadastro está arquivado. Entre em contato com a coordenação.", 403);
-    const { data, error } = await scoped(db.from("families").select("*").order("created_at", { ascending: false }), session);
+    const { data, error } = await fetchAllRows(scoped(db.from("families").select("*").order("created_at", { ascending: false }), session));
     if (error) throw error;
     return NextResponse.json({ items: data.map(family), role: session.role }, { headers: { "Cache-Control": "no-store" } });
   } catch (cause) {

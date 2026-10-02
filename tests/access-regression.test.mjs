@@ -52,17 +52,20 @@ test("activist data loads through its own session and remains scoped to its acco
   const filters = [];
   let session = { role: "activist", authMethod: "password-v1", id: "activist", leadershipId: "leader" };
   const db = { from(table) {
+    let offset = 0;
     return {
+      range(from) { offset = from; return this; },
       select() { return this; }, order() { return this; }, eq(field, value) { filters.push([table, field, value]); return this; },
       maybeSingle: async () => ({ data: { id: "leader", archived_at: null }, error: null }),
-      then(resolve) { return Promise.resolve({ data: [{ id: "family", activist_id: "activist", leadership_id: "leader", name: "Test" }], error: null }).then(resolve); },
+      then(resolve) { return Promise.resolve({ data: offset === 0 ? [{ id: "family", activist_id: "activist", leadership_id: "leader", name: "Test" }] : [], error: null }).then(resolve); },
     };
   } };
   const route = await loadRoute("../app/api/families/route.js", [
     ['import { NextResponse } from "next/server";', 'const { NextResponse } = globalThis.__accessRegression;'],
     ['import { sessionFromRequest, supabaseAdmin, verifySession } from "../../../lib/server-auth";', 'const { sessionFromRequest, supabaseAdmin, verifySession } = globalThis.__accessRegression;'],
+    ['import { fetchAllRows } from "../../../lib/database-pagination.mjs";', 'const { fetchAllRows } = globalThis.__accessRegression;'],
     ['import { isDuplicateRegistration } from "../../../lib/database-errors";', 'const { isDuplicateRegistration } = globalThis.__accessRegression;'],
-  ], { NextResponse, sessionFromRequest: () => null, verifySession: () => session, supabaseAdmin: () => db, ...errors });
+  ], { fetchAllRows, NextResponse, sessionFromRequest: () => null, verifySession: () => session, supabaseAdmin: () => db, ...errors });
   const request = { cookies: { get: () => ({ value: "test-cookie" }) } };
   const response = await route.GET(request);
   assert.equal(response.status, 200);
@@ -76,11 +79,14 @@ test("activist data loads through its own session and remains scoped to its acco
 test("activist context cannot inherit a simultaneous portal session", async (t) => {
   let portal = { role: "leader", id: "other-leader" };
   let activist = { role: "activist", authMethod: "password-v1", id: "activist", leadershipId: "leader" };
+  let auditThrows = false;
   const inserted = [];
   const filters = [];
   const db = { from(table) {
+    if (table === "trust_network_history" && auditThrows) throw new Error("Audit connection failed");
     let item = null;
     return {
+      range() { return this; },
       select() { return this; }, order() { return this; },
       eq(field, value) { filters.push([table, field, value]); return this; },
       insert(value) { item = value; if (table === "families") inserted.push(value); return this; },
@@ -92,8 +98,9 @@ test("activist context cannot inherit a simultaneous portal session", async (t) 
   const route = await loadRoute("../app/api/families/route.js", [
     ['import { NextResponse } from "next/server";', 'const { NextResponse } = globalThis.__accessRegression;'],
     ['import { sessionFromRequest, supabaseAdmin, verifySession } from "../../../lib/server-auth";', 'const { sessionFromRequest, supabaseAdmin, verifySession } = globalThis.__accessRegression;'],
+    ['import { fetchAllRows } from "../../../lib/database-pagination.mjs";', 'const { fetchAllRows } = globalThis.__accessRegression;'],
     ['import { isDuplicateRegistration } from "../../../lib/database-errors";', 'const { isDuplicateRegistration } = globalThis.__accessRegression;'],
-  ], { NextResponse, sessionFromRequest: () => portal, verifySession: () => activist, supabaseAdmin: () => db, ...errors });
+  ], { fetchAllRows, NextResponse, sessionFromRequest: () => portal, verifySession: () => activist, supabaseAdmin: () => db, ...errors });
   const request = (context) => ({
     headers: new Headers(context ? { "x-access-context": context } : {}),
     cookies: { get: () => ({ value: "verified-by-test-stub" }) },
@@ -116,6 +123,11 @@ test("activist context cannot inherit a simultaneous portal session", async (t) 
     assert.equal((await route.GET(request("activist"))).status, 200);
     assert.ok(filters.some(([table, field, value]) => table === "families" && field === "activist_id" && value === "activist"));
     assert.ok(filters.some(([table, field, value]) => table === "families" && field === "leadership_id" && value === "leader"));
+  });
+  await t.test("audit failure cannot report a committed save as failed", async () => {
+    auditThrows = true;
+    assert.equal((await route.POST(request("activist"))).status, 201);
+    auditThrows = false;
   });
   await t.test("missing or wrong activist session fails closed instead of using administrator", async () => {
     const count = inserted.length;

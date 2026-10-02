@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { startLiveRefresh } from "../../lib/live-refresh.mjs";
 import { AMAZONAS_MUNICIPALITIES, AMAZONAS_TERRITORIES, MANAUS_ZONES, getManausZone } from "../data/territories";
 import { MANAUS_MAP_ZONES } from "../data/manaus-map";
 import { PIX_BANKS } from "../data/banks";
@@ -811,6 +812,8 @@ function ManausCoverageMap({ db }) {
 }
 
 function TrustNetworkManager({ db, setDb, admin, remote }) {
+  const savingLock = useRef(false);
+  const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState(""),
     [activistFilter, setActivistFilter] = useState(""),
     [leaderFilter, setLeaderFilter] = useState(""),
@@ -831,6 +834,7 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
   });
   const save = async (event) => {
     event.preventDefault();
+    if (savingLock.current) return;
     setNotice("");
     if (!editingFamily.name?.trim() || !editingFamily.address?.trim() || !editingFamily.municipality || !editingFamily.neighborhood) {
       setNotice("Informe nome, endereço, município e bairro/localidade.");
@@ -840,6 +844,8 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
       setNotice("O CPF informado é inválido.");
       return;
     }
+    savingLock.current = true;
+    setSaving(true);
     try {
       const result = await remote("/api/families", {
         method: "POST",
@@ -853,6 +859,9 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
       setNotice(editingFamily.id ? "Cadastro atualizado." : "Pessoa cadastrada pela liderança.");
     } catch (error) {
       setNotice(error.message);
+    } finally {
+      savingLock.current = false;
+      setSaving(false);
     }
   };
   const remove = async (item) => {
@@ -1016,7 +1025,7 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
         </div>
       )}
       {editingFamily && (
-        <form onSubmit={save} className="assessor-editor">
+        <form onSubmit={save} className="assessor-editor"><fieldset disabled={saving} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
           <div className="editor-title">
             <div>
               <h3>{editingFamily.id ? "Editar pessoa da rede" : "Cadastro da liderança na Rede de confiança"}</h3>
@@ -1045,8 +1054,8 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
             <Field f={editingFamily} setF={setEditingFamily} n="zone" label="Zona" />
             <Field f={editingFamily} setF={setEditingFamily} n="section" label="Seção" />
           </div>
-          <button className="primary">{editingFamily.id ? "Salvar alterações" : "Concluir cadastro"}</button>
-        </form>
+          <button className="primary" disabled={saving}>{saving ? "Salvando…" : editingFamily.id ? "Salvar alterações" : "Concluir cadastro"}</button>
+        </fieldset></form>
       )}
       {list.length ? (
         groups.map((group) => (
@@ -1183,7 +1192,11 @@ export default function Portal() {
     }
   }, [mode, generatedPerson]);
 
+  const writes = useRef({ active: 0, version: 0 });
   const remote = async (path, options = {}) => {
+    const mutation = options.method && options.method !== "GET";
+    if (mutation) { writes.current.active++; writes.current.version++; }
+    try {
     const response = await fetch(path, {
       ...options,
       headers: {
@@ -1194,6 +1207,9 @@ export default function Portal() {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || "Não foi possível concluir a operação.");
     return payload;
+    } finally {
+      if (mutation) { writes.current.active--; writes.current.version++; }
+    }
   };
   const loadRemote = async () => {
     const payload = await remote("/api/data", { cache: "no-store" });
@@ -1223,29 +1239,21 @@ export default function Portal() {
   }, []);
   useEffect(() => {
     if (!["admin-area", "leader-area"].includes(mode) || !role) return;
-    let active = true;
-    let pending = false;
-    const refresh = async () => {
-      if (!active || pending || document.visibilityState !== "visible") return;
-      pending = true;
-      try {
-        const payload = await remote("/api/data", { cache: "no-store" });
-        if (active) setDb({ ...fresh(), ...payload.db });
-      } catch {
-        if (active) setMsg("Não foi possível atualizar os dados. Tente recarregar a página.");
-      } finally {
-        pending = false;
-      }
-    };
-    const timer = window.setInterval(refresh, 60000);
-    window.addEventListener("focus", refresh);
-    document.addEventListener("visibilitychange", refresh);
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-      window.removeEventListener("focus", refresh);
-      document.removeEventListener("visibilitychange", refresh);
-    };
+    return startLiveRefresh({
+      isReady: () => writes.current.active === 0,
+      read: async (signal) => {
+        const version = writes.current.version;
+        const payload = await remote("/api/data", { cache: "no-store", signal });
+        return { payload, version };
+      },
+      apply: ({ payload, version }) => {
+        if (writes.current.active === 0 && writes.current.version === version) {
+          setDb({ ...fresh(), ...payload.db });
+          setMsg(current => current === "Conexão temporariamente indisponível. Os dados exibidos serão atualizados automaticamente." ? "" : current);
+        }
+      },
+      onError: () => setMsg("Conexão temporariamente indisponível. Os dados exibidos serão atualizados automaticamente."),
+    });
   }, [mode, role]);
   const go = (next) => {
     setMode(next);
