@@ -15,21 +15,54 @@ const errors = await import(`data:text/javascript;base64,${Buffer.from(errorsSou
 test("account data tolerates only the confirmed missing optional history table", async () => {
   const historyError = { code: "PGRST205", message: "Could not find the table 'public.trust_network_history' in the schema cache" };
   let failure = historyError;
+  let role = "admin";
   const db = { from(table) {
     const result = { data: table === "leaderships" ? [{ id: "leader", name: "Test" }] : [], error: table === "trust_network_history" ? failure : null };
-    const chain = { select() { return this; }, order() { return this; }, eq() { return this; }, then(resolve) { return Promise.resolve(result).then(resolve); } };
+    const chain = { select() { return this; }, order() { return this; }, eq() { return this; }, maybeSingle: async () => ({ data: { id: "leader", archived_at: null }, error: null }), then(resolve) { return Promise.resolve(result).then(resolve); } };
     return chain;
   } };
   const route = await loadRoute("../app/api/data/route.js", [
     ['import { NextResponse } from "next/server";', 'const { NextResponse } = globalThis.__accessRegression;'],
     ['import { sessionFromRequest, supabaseAdmin } from "../../../lib/server-auth";', 'const { sessionFromRequest, supabaseAdmin } = globalThis.__accessRegression;'],
     ['import { isDuplicateRegistration, isMissingOptionalHistory } from "../../../lib/database-errors";', 'const { isDuplicateRegistration, isMissingOptionalHistory } = globalThis.__accessRegression;'],
-  ], { NextResponse, sessionFromRequest: () => ({ role: "admin" }), supabaseAdmin: () => db, ...errors });
+  ], { NextResponse, sessionFromRequest: () => ({ role, id: "leader" }), supabaseAdmin: () => db, ...errors });
   assert.equal((await route.GET({})).status, 200);
+  role = "leader";
+  const leaderResponse = await route.GET({});
+  assert.equal(leaderResponse.status, 200);
+  assert.equal(leaderResponse.body.db.leaderships[0].id, "leader");
+  role = "activist";
+  assert.equal((await route.GET({})).status, 401);
+  role = "admin";
   failure = { code: "42501", message: "permission denied" };
   assert.equal((await route.GET({})).status, 500);
   failure = { code: "PGRST205", message: "Could not find the table 'public.leaderships' in the schema cache" };
   assert.equal((await route.GET({})).status, 500);
+});
+
+test("activist data loads through its own session and remains scoped to its account", async () => {
+  const filters = [];
+  let session = { role: "activist", authMethod: "password-v1", id: "activist", leadershipId: "leader" };
+  const db = { from(table) {
+    return {
+      select() { return this; }, order() { return this; }, eq(field, value) { filters.push([table, field, value]); return this; },
+      maybeSingle: async () => ({ data: { id: "leader", archived_at: null }, error: null }),
+      then(resolve) { return Promise.resolve({ data: [{ id: "family", activist_id: "activist", leadership_id: "leader", name: "Test" }], error: null }).then(resolve); },
+    };
+  } };
+  const route = await loadRoute("../app/api/families/route.js", [
+    ['import { NextResponse } from "next/server";', 'const { NextResponse } = globalThis.__accessRegression;'],
+    ['import { sessionFromRequest, supabaseAdmin, verifySession } from "../../../lib/server-auth";', 'const { sessionFromRequest, supabaseAdmin, verifySession } = globalThis.__accessRegression;'],
+    ['import { isDuplicateRegistration } from "../../../lib/database-errors";', 'const { isDuplicateRegistration } = globalThis.__accessRegression;'],
+  ], { NextResponse, sessionFromRequest: () => null, verifySession: () => session, supabaseAdmin: () => db, ...errors });
+  const request = { cookies: { get: () => ({ value: "test-cookie" }) } };
+  const response = await route.GET(request);
+  assert.equal(response.status, 200);
+  assert.equal(response.body.items[0].id, "family");
+  assert.ok(filters.some(([table, field, value]) => table === "families" && field === "activist_id" && value === "activist"));
+  assert.ok(filters.some(([table, field, value]) => table === "families" && field === "leadership_id" && value === "leader"));
+  session = null;
+  assert.equal((await route.GET(request)).status, 401);
 });
 
 test("SMS recovery refuses simulated delivery and consumes the challenge", async () => {
