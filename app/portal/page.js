@@ -7,6 +7,8 @@ import { MANAUS_MAP_ZONES } from "../data/manaus-map";
 import { PIX_BANKS } from "../data/banks";
 import ActivityRecords from "./ActivityRecords";
 import PasswordRecovery from "../components/PasswordRecovery";
+import NeighborhoodTotals from "../components/NeighborhoodTotals";
+import TrustTransfers from "../components/TrustTransfers";
 
 const TSE = "https://www.tse.jus.br/servicos-eleitorais/autoatendimento-eleitoral";
 const KEY = "cadastro-eleitoral-dainara-2026-v9";
@@ -811,18 +813,18 @@ function ManausCoverageMap({ db }) {
   );
 }
 
-function TrustNetworkManager({ db, setDb, admin, remote }) {
+function TrustNetworkManager({ db, setDb, admin, remote, scopedLeaderId = "" }) {
   const savingLock = useRef(false);
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState(""),
     [activistFilter, setActivistFilter] = useState(""),
-    [leaderFilter, setLeaderFilter] = useState(""),
+    [leaderFilter, setLeaderFilter] = useState(scopedLeaderId),
     [neighborhoodFilter, setNeighborhoodFilter] = useState(""),
     [originFilter, setOriginFilter] = useState(""),
     [editingFamily, setEditingFamily] = useState(null),
     [history, setHistory] = useState([]),
     [notice, setNotice] = useState("");
-  const families = db.families || [];
+  const families = (db.families || []).filter((p) => !scopedLeaderId || p.leaderId === scopedLeaderId);
   const neighborhoods = [...new Set(families.map((x) => x.neighborhood).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
   const activistsForFilter = leaderFilter ? db.activists.filter((activist) => activist.leaderId === leaderFilter) : db.activists;
   const list = families.filter((item) => {
@@ -844,6 +846,10 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
       setNotice("O CPF informado é inválido.");
       return;
     }
+    if (admin && !editingFamily.id && !editingFamily.leaderId) {
+      setNotice("Selecione a liderança responsável.");
+      return;
+    }
     savingLock.current = true;
     setSaving(true);
     try {
@@ -856,7 +862,7 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
         families: editingFamily.id ? current.families.map((x) => (x.id === result.item.id ? result.item : x)) : [result.item, ...current.families],
       }));
       setEditingFamily(null);
-      setNotice(editingFamily.id ? "Cadastro atualizado." : "Pessoa cadastrada pela liderança.");
+      setNotice(editingFamily.id ? "Cadastro atualizado." : "Pessoa cadastrada na rede da liderança.");
     } catch (error) {
       setNotice(error.message);
     } finally {
@@ -944,15 +950,15 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
       <div className="page-head">
         <div>
           <h2>Rede de confiança</h2>
-          <p>{admin ? "Todas as redes cadastradas no sistema, organizadas pela origem do cadastro." : "Cadastros da própria liderança e dos ativistas vinculados, organizados separadamente."}</p>
+          <p>{scopedLeaderId ? "Rede desta liderança e dos ativistas vinculados. Novas pessoas serão cadastradas diretamente nesta liderança." : admin ? "Todas as redes cadastradas no sistema, organizadas pela origem do cadastro." : "Cadastros da própria liderança e dos ativistas vinculados, organizados separadamente."}</p>
         </div>
-        {!admin && (
+        {(
           <button
             className="primary"
             onClick={() => {
               setHistory([]);
               setNotice("");
-              setEditingFamily({ ...EMPTY });
+              setEditingFamily({ ...EMPTY, leaderId: scopedLeaderId || leaderFilter });
             }}
           >
             ＋ Cadastrar pessoa
@@ -969,7 +975,7 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
             <option value="activist">Ativista</option>
           </select>
         </label>
-        {admin && (
+        {admin && !scopedLeaderId && (
           <label className="field">
             <span>Filtrar por liderança</span>
             <select
@@ -1019,7 +1025,7 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
           <h3>Histórico básico</h3>
           {history.map((h) => (
             <p key={h.id}>
-              <b>{h.action === "update" ? "Edição" : h.action === "delete" ? "Exclusão" : "Cadastro"}</b> — {new Date(h.created_at).toLocaleString("pt-BR")} — perfil {h.actor_role}
+              <b>{h.snapshot?.operation === "transfer" ? "Transferência" : h.snapshot?.operation === "convert-activist" ? "Conversão de ativista" : h.action === "update" ? "Edição" : h.action === "delete" ? "Exclusão" : "Cadastro"}</b> — {new Date(h.created_at).toLocaleString("pt-BR")} — perfil {h.actor_role}
             </p>
           ))}
         </div>
@@ -1036,6 +1042,12 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
             </button>
           </div>
           {editingFamily.id && <div className="context-badge">Os vínculos com ativista e liderança serão preservados.</div>}
+          {admin && !editingFamily.id && <label className="field"><span>Liderança responsável</span>
+            <select required value={editingFamily.leaderId || ""} disabled={Boolean(scopedLeaderId)} onChange={(e) => setEditingFamily({ ...editingFamily, leaderId: e.target.value })}>
+              <option value="">Selecione a liderança</option>
+              {db.leaderships.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </select>
+          </label>}
           <h3>Dados pessoais</h3>
           <div className="form-grid">
             <Field f={editingFamily} setF={setEditingFamily} n="name" label="Nome completo" required />
@@ -1098,6 +1110,7 @@ function Side({ admin, view, setView, logout, newL, newA, exportExcel, exportCSV
             {item("archived", "Arquivados", "▤")}
             {item("activists", "Ativistas", "♧")}
             {item("trust-network", "Rede de confiança", "♡")}
+            {item("trust-transfers", "Transferir cadastros", "⇄")}
             {item("daily-activities", "Atividades diárias", "▣")}
             {item("admins", "Administradores", "◉")}
             {item("assessors", "Assessoria", "☎")}
@@ -1972,6 +1985,7 @@ export default function Portal() {
             </button>
           </div>
         </div>
+        <NeighborhoodTotals db={db} />
         <ManausCoverageMap db={db} />
       </>
     ) : (
@@ -2147,6 +2161,7 @@ export default function Portal() {
       </div>
     );
   } else if (view === "trust-network") content = <TrustNetworkManager db={db} setDb={setDb} admin={admin} remote={remote} />;
+  else if (view === "trust-transfers" && admin) content = <TrustTransfers db={db} remote={remote} reload={loadRemote} />;
   else if (view === "daily-activities") content = <ActivityRecords admin={admin} />;
   else if (view === "leadership-detail" && admin) {
     const l = db.leaderships.find((x) => x.id === detail),
@@ -2223,6 +2238,7 @@ export default function Portal() {
             ) : (
               <div className="empty">Nenhum ativista vinculado.</div>
             )}
+            {l && <TrustNetworkManager key={l.id} db={db} setDb={setDb} admin={admin} remote={remote} scopedLeaderId={l.id} />}
           </div>
         }
       />

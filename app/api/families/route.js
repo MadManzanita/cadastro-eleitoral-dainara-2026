@@ -117,10 +117,16 @@ export async function POST(request) {
         await audit(db, session, "update", data);
         return NextResponse.json({ item: family(data) });
       }
-      if (!['activist', 'leader'].includes(session.role)) return fail("Acesso não autorizado.", 403);
+      if (!['activist', 'leader', 'admin'].includes(session.role)) return fail("Acesso não autorizado.", 403);
+      if (session.role === "admin") {
+        if (!body.leaderId) return fail("Escolha uma liderança ativa para este cadastro.");
+        const { data: responsible, error: lookupError } = await db.from("leaderships").select("id,archived_at").eq("id", body.leaderId).maybeSingle();
+        if (lookupError) throw lookupError;
+        if (!responsible || responsible.archived_at) return fail("Escolha uma liderança ativa para este cadastro.");
+      }
       const ownership = session.role === "activist"
         ? { activist_id: session.id, leadership_id: session.leadershipId }
-        : { activist_id: null, leadership_id: session.id };
+        : { activist_id: null, leadership_id: session.role === "admin" ? body.leaderId : session.id };
       const { data, error } = await db.from("families").insert({ ...next, ...ownership }).select("*").single();
       if (error) throw error;
       await audit(db, session, "create", data);
