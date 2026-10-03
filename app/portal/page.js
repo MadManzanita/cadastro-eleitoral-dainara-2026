@@ -864,7 +864,7 @@ function TrustNetworkManager({ db, setDb, admin, remote, scopedLeaderId = "" }) 
         families: editingFamily.id ? current.families.map((x) => (x.id === result.item.id ? result.item : x)) : [result.item, ...current.families],
       }));
       setEditingFamily(null);
-      setNotice(editingFamily.id ? "Cadastro atualizado." : "Pessoa cadastrada na rede da liderança.");
+      setNotice(editingFamily.id ? "Cadastro atualizado." : result.item.activistId ? "Pessoa cadastrada na rede do ativista." : "Pessoa cadastrada na rede da liderança.");
     } catch (error) {
       setNotice(error.message);
     } finally {
@@ -952,7 +952,7 @@ function TrustNetworkManager({ db, setDb, admin, remote, scopedLeaderId = "" }) 
       <div className="page-head">
         <div>
           <h2>Rede de confiança</h2>
-          <p>{scopedLeaderId ? "Rede desta liderança e dos ativistas vinculados. Novas pessoas serão cadastradas diretamente nesta liderança." : admin ? "Todas as redes cadastradas no sistema, organizadas pela origem do cadastro." : "Cadastros da própria liderança e dos ativistas vinculados, organizados separadamente."}</p>
+          <p>{scopedLeaderId ? "Rede desta liderança e dos ativistas vinculados. Ao cadastrar, escolha a rede da liderança ou de um dos seus ativistas." : admin ? "Todas as redes cadastradas no sistema, organizadas pela origem do cadastro." : "Cadastros da própria liderança e dos ativistas vinculados, organizados separadamente."}</p>
         </div>
         {(
           <button
@@ -960,7 +960,7 @@ function TrustNetworkManager({ db, setDb, admin, remote, scopedLeaderId = "" }) 
             onClick={() => {
               setHistory([]);
               setNotice("");
-              setEditingFamily({ ...EMPTY, leaderId: scopedLeaderId || leaderFilter });
+              setEditingFamily({ ...EMPTY, leaderId: scopedLeaderId || leaderFilter, activistId: "" });
             }}
           >
             ＋ Cadastrar pessoa
@@ -1036,7 +1036,7 @@ function TrustNetworkManager({ db, setDb, admin, remote, scopedLeaderId = "" }) 
         <form onSubmit={save} className="assessor-editor"><fieldset disabled={saving} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
           <div className="editor-title">
             <div>
-              <h3>{editingFamily.id ? "Editar pessoa da rede" : "Cadastro da liderança na Rede de confiança"}</h3>
+              <h3>{editingFamily.id ? "Editar pessoa da rede" : "Cadastrar pessoa na Rede de confiança"}</h3>
               <p>Somente nome, endereço e localização territorial são obrigatórios.</p>
             </div>
             <button type="button" className="back small-back" onClick={() => setEditingFamily(null)}>
@@ -1045,9 +1045,15 @@ function TrustNetworkManager({ db, setDb, admin, remote, scopedLeaderId = "" }) 
           </div>
           {editingFamily.id && <div className="context-badge">Os vínculos com ativista e liderança serão preservados.</div>}
           {admin && !editingFamily.id && <label className="field"><span>Liderança responsável</span>
-            <select required value={editingFamily.leaderId || ""} disabled={Boolean(scopedLeaderId)} onChange={(e) => setEditingFamily({ ...editingFamily, leaderId: e.target.value })}>
+            <select required value={editingFamily.leaderId || ""} disabled={Boolean(scopedLeaderId)} onChange={(e) => setEditingFamily({ ...editingFamily, leaderId: e.target.value, activistId: "" })}>
               <option value="">Selecione a liderança</option>
               {db.leaderships.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </select>
+          </label>}
+          {admin && !editingFamily.id && <label className="field"><span>Rede de destino</span>
+            <select value={editingFamily.activistId || ""} disabled={!editingFamily.leaderId} onChange={(e) => setEditingFamily({ ...editingFamily, activistId: e.target.value })}>
+              <option value="">Rede da própria liderança</option>
+              {db.activists.filter((a) => a.leaderId === editingFamily.leaderId).map((a) => <option key={a.id} value={a.id}>Rede do ativista: {a.name}</option>)}
             </select>
           </label>}
           <h3>Dados pessoais</h3>

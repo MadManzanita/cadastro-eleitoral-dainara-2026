@@ -26,12 +26,24 @@ test("administrator creation assigns active leadership server-side and rejects a
  let archived=false,inserted;
  const db={from(table){return {select(){return this;},eq(){return this;},maybeSingle:async()=>({data:{id:uuid,archived_at:archived?"now":null}}),insert(data){if(table==="families")inserted=data;return this;},single:async()=>({data:{id:uuid,...inserted}}),then(resolve){resolve({error:null});}};}};
  const handler=await route("../app/api/families/route.js",{NextResponse,sessionFromRequest:()=>({role:"admin",id:"admin-id"}),verifySession:()=>null,supabaseAdmin:()=>db,isDuplicateRegistration:()=>false});
- const body={action:"save",leaderId:uuid,activistId:"forged",name:"Test",address:"Street",municipality:"Manaus",neighborhood:"Centro"};
+ const body={action:"save",leaderId:uuid,name:"Test",address:"Street",municipality:"Manaus",neighborhood:"Centro"};
  const request=(data)=>({headers:{get:()=>null},cookies:{get:()=>null},json:async()=>data});
  assert.equal((await handler.POST(request({...body,leaderId:null}))).status,400);
  archived=true;assert.equal((await handler.POST(request(body))).status,400);assert.equal(inserted,undefined);
  archived=false;assert.equal((await handler.POST(request(body))).status,201);
  assert.equal(inserted.leadership_id,uuid);assert.equal(inserted.activist_id,null);
+});
+
+test("administrator can create in a linked activist network and cannot choose an unrelated or missing activist",async()=>{
+ let activist={id:'activist-id',leadership_id:uuid},inserted;
+ const db={from(table){return {select(){return this;},eq(){return this;},maybeSingle:async()=>({data:table==='activists'?activist:{id:uuid,archived_at:null}}),insert(data){if(table==='families')inserted=data;return this;},single:async()=>({data:{id:uuid,...inserted}}),then(resolve){resolve({error:null});}};}};
+ const handler=await route('../app/api/families/route.js',{NextResponse,sessionFromRequest:()=>({role:'admin',id:'admin-id'}),verifySession:()=>null,supabaseAdmin:()=>db,isDuplicateRegistration:()=>false});
+ const request=()=>({headers:{get:()=>null},cookies:{get:()=>null},json:async()=>({action:'save',leaderId:uuid,activistId:'activist-id',name:'Test',address:'Street',municipality:'Manaus',neighborhood:'Centro'})});
+ const result=await handler.POST(request());
+ assert.equal(result.status,201);assert.equal(result.body.item.activistId,'activist-id');assert.equal(inserted.leadership_id,uuid);
+ inserted=undefined;activist={id:'activist-id',leadership_id:'other-leader'};
+ assert.equal((await handler.POST(request())).status,400);assert.equal(inserted,undefined);
+ activist=null;assert.equal((await handler.POST(request())).status,400);assert.equal(inserted,undefined);
 });
 
 test("leadership and activist edits persist municipality and return it to the dashboard",async()=>{
