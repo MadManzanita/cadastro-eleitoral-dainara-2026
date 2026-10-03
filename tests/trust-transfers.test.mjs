@@ -20,11 +20,14 @@ test("atomic trust transfers",async(t)=>{
  await db.exec(await read("../supabase/migrations/003_sms_challenges.sql"));
  const migration=await read("../supabase/migrations/010_bulk_trust_transfers.sql");
  await db.exec(migration); await db.exec(migration);
+ const municipalityMigration=await read("../supabase/migrations/011_registration_municipality.sql");
+ await db.exec(municipalityMigration); await db.exec(municipalityMigration);
  await db.query("insert into admins(id,name,cpf,password_hash) values($1,'Admin','1','hash')",[admin]);
  await db.query("insert into leaderships(id,name,cpf,password_hash) values($1,'L1','2','hash'),($2,'L2','3','hash')",[l1,l2]);
  const reset=async()=>{
   await db.exec("delete from families; delete from activists; delete from trust_network_history; update leaderships set archived_at=null;");
   await db.query("insert into activists(id,leadership_id,name,cpf,pix) values($1,$2,'A1','4','saved-pix'),($3,$4,'A2','5',null)",[a1,l1,a2,l2]);
+  await db.query("update activists set municipality='Manaus',manaus_zone='Sul' where id=$1",[a1]);
   await db.query("insert into families(id,leadership_id,activist_id,name,cpf) values($1,$2,$3,'Dependent','6'),($4,$2,null,'Direct','7')",[f1,l1,a1,f2]);
   await db.query("insert into sms_challenges(activist_id,leadership_id,phone,code_hash,expires_at) values($1,$2,'TRUST_PASSWORD','hash',now())",[a1,l1]);
  };
@@ -35,6 +38,8 @@ test("atomic trust transfers",async(t)=>{
   assert.equal(result.converted,1);assert.equal(result.moved,2);
   const rows=(await db.query("select * from families")).rows;
   assert.equal(rows.length,3); assert.ok(rows.every(r=>r.leadership_id===l2&&r.activist_id===a2));
+  assert.equal(rows.find(r=>r.cpf==='4').municipality,'Manaus');
+  assert.equal(rows.find(r=>r.cpf==='4').manaus_zone,'Sul');
   assert.equal(await scalar("select count(*)::int from activists"),1);
   assert.equal(await scalar("select count(*)::int from sms_challenges"),0);
   assert.equal(await scalar("select snapshot->'before'->>'pix' from trust_network_history where snapshot->>'operation'='convert-activist'"),"saved-pix");
