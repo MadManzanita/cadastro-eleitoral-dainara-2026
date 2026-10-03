@@ -123,10 +123,15 @@ export async function POST(request) {
         const { data: responsible, error: lookupError } = await db.from("leaderships").select("id,archived_at").eq("id", body.leaderId).maybeSingle();
         if (lookupError) throw lookupError;
         if (!responsible || responsible.archived_at) return fail("Escolha uma liderança ativa para este cadastro.");
+        if (body.activistId) {
+          const { data: activist, error: activistError } = await db.from("activists").select("id,leadership_id").eq("id", body.activistId).maybeSingle();
+          if (activistError) throw activistError;
+          if (!activist || activist.leadership_id !== responsible.id) return fail("Escolha um ativista vinculado à liderança selecionada.");
+        }
       }
       const ownership = session.role === "activist"
         ? { activist_id: session.id, leadership_id: session.leadershipId }
-        : { activist_id: null, leadership_id: session.role === "admin" ? body.leaderId : session.id };
+        : { activist_id: session.role === "admin" ? body.activistId || null : null, leadership_id: session.role === "admin" ? body.leaderId : session.id };
       const { data, error } = await db.from("families").insert({ ...next, ...ownership }).select("*").single();
       if (error) throw error;
       await audit(db, session, "create", data);
