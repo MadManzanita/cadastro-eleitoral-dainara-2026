@@ -9,6 +9,7 @@ import ActivityRecords from "./ActivityRecords";
 import PasswordRecovery from "../components/PasswordRecovery";
 import NeighborhoodTotals from "../components/NeighborhoodTotals";
 import TrustTransfers from "../components/TrustTransfers";
+import { manausCoverage } from "../../lib/neighborhood-counts.mjs";
 
 const TSE = "https://www.tse.jus.br/servicos-eleitorais/autoatendimento-eleitoral";
 const KEY = "cadastro-eleitoral-dainara-2026-v9";
@@ -159,7 +160,7 @@ function HolderNameField({ f }) {
 }
 
 function TerritoryFields({ f, setF }) {
-  const inferredMunicipality = f.municipality || (MANAUS_ZONES[f.neighborhood] ? "Manaus" : "");
+  const inferredMunicipality = f.municipality || "";
   const neighborhoods = inferredMunicipality ? AMAZONAS_TERRITORIES[inferredMunicipality] || [] : [];
   const manausZone = inferredMunicipality === "Manaus" ? getManausZone(f.neighborhood || "") : "";
   return (
@@ -689,8 +690,7 @@ function Detail({ person, title, leader, onBack, onEdit, team, credential, actio
 
 function ManausCoverageMap({ db }) {
   const [hovered, setHovered] = useState(null);
-  const allPeople = [...(db.leaderships || []), ...(db.activists || []), ...(db.families || [])];
-  const counts = Object.fromEntries(MANAUS_MAP_ZONES.map(({ name }) => [name, allPeople.filter((person) => MANAUS_ZONES[person.neighborhood] === name).length]));
+  const { counts, total, unzoned, unknownMunicipality } = manausCoverage(db);
   const active = MANAUS_MAP_ZONES.find((zone) => zone.name === hovered);
 
   const getColor = (count, isActive) => {
@@ -707,6 +707,8 @@ function ManausCoverageMap({ db }) {
         <div>
           <h2>Mapa de cadastros por zona</h2>
           <p>Manaus — bairros oficiais por zona administrativa.</p>
+          <p><b>{total} cadastro(s) com município Manaus</b> · {total - unzoned} distribuído(s) nas zonas{unzoned > 0 ? ` · ${unzoned} sem zona identificada` : ""}.</p>
+          {unknownMunicipality > 0 && <p>{unknownMunicipality} cadastro(s) sem município informado estão fora deste mapa. Confira-os no filtro “Município não informado”.</p>}
         </div>
       </div>
       <div style={{ position: "relative", maxWidth: 860, margin: "12px auto 0" }}>

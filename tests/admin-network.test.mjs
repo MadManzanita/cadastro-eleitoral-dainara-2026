@@ -33,3 +33,13 @@ test("administrator creation assigns active leadership server-side and rejects a
  archived=false;assert.equal((await handler.POST(request(body))).status,201);
  assert.equal(inserted.leadership_id,uuid);assert.equal(inserted.activist_id,null);
 });
+
+test("leadership and activist edits persist municipality and return it to the dashboard",async()=>{
+ let written;
+ const db={from(){return {select(){return this;},eq(){return this;},maybeSingle:async()=>({data:{id:uuid}}),update(data){written=data;return this;},single:async()=>({data:{id:uuid,...written}})};}};
+ const handler=await route("../app/api/data/route.js",{NextResponse,sessionFromRequest:()=>({role:'admin',id:uuid}),supabaseAdmin:()=>db,isDuplicateRegistration:()=>false});
+ for(const action of ['save-leadership','save-activist']) {
+  const result=await handler.POST({json:async()=>({action,id:uuid,leaderId:uuid,name:'Test',cpf:'11111111111',municipality:'Careiro',manausZone:'',neighborhood:'Centro'})});
+  assert.equal(result.status,200);assert.equal(written.municipality,'Careiro');assert.equal(result.body.item.municipality,'Careiro');
+ }
+});
