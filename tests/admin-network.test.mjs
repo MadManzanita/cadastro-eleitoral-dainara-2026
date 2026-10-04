@@ -6,6 +6,7 @@ const uuid="11111111-1111-4111-8111-111111111111";
 async function route(file,bindings){
  let source=await readFile(new URL(file,import.meta.url),"utf8");
  source=source.replace(/^import .*;\r?\n/gm,"");
+ source='const registrationsClosed = () => false; const REGISTRATION_CLOSED_MESSAGE = "Closed";\n'+source;
  globalThis.__adminNetwork=bindings;
  source='const {NextResponse,sessionFromRequest,supabaseAdmin,verifySession,fetchAllRows,isDuplicateRegistration}=globalThis.__adminNetwork;\n'+source;
  return import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}#${Math.random()}`);

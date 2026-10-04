@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { sessionFromRequest, supabaseAdmin } from "../../../lib/server-auth";
 import { fetchAllRows } from "../../../lib/database-pagination.mjs";
+import { registrationsClosed, REGISTRATION_CLOSED_MESSAGE } from "../../../lib/registration-window.mjs";
 import { isDuplicateRegistration, isMissingOptionalHistory } from "../../../lib/database-errors";
 
 export const runtime = "nodejs";
@@ -192,6 +193,7 @@ export async function POST(request) {
     const session = sessionFromRequest(request);
     if (!session || !["admin", "leader"].includes(session.role)) return fail("Faça login para continuar.", 401);
     const body = await request.json();
+    if (!body.id && ["save-leadership", "save-activist"].includes(body.action) && registrationsClosed()) return fail(REGISTRATION_CLOSED_MESSAGE, 403);
     const db = supabaseAdmin();
     if (session.role === "leader") {
       const { data: currentLeader, error: accessError } = await db.from("leaderships").select("id,archived_at").eq("id", session.id).maybeSingle();
@@ -256,6 +258,7 @@ export async function POST(request) {
       }
       const temporaryPassword = String(Math.floor(10000000 + Math.random() * 90000000));
       const { hashPassword } = await import("../../../lib/server-auth");
+      if (registrationsClosed()) return fail(REGISTRATION_CLOSED_MESSAGE, 403);
       const { data, error } = await db
         .from("leaderships")
         .insert({ ...values, password_hash: hashPassword(temporaryPassword) })
@@ -284,6 +287,7 @@ export async function POST(request) {
         if (error) throw error;
         return NextResponse.json({ item: activist(data) });
       }
+      if (registrationsClosed()) return fail(REGISTRATION_CLOSED_MESSAGE, 403);
       const { data, error } = await db
         .from("activists")
         .insert({ ...values, leadership_id: leadershipId })
