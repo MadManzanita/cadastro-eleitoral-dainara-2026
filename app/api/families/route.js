@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { sessionFromRequest, supabaseAdmin, verifySession } from "../../../lib/server-auth";
 import { fetchAllRows } from "../../../lib/database-pagination.mjs";
 import { isDuplicateRegistration } from "../../../lib/database-errors";
+import { registrationsClosed, REGISTRATION_CLOSED_MESSAGE } from "../../../lib/registration-window.mjs";
 
 export const runtime = "nodejs";
 const fail = (error, status = 400) => NextResponse.json({ error }, { status });
@@ -99,6 +100,7 @@ export async function POST(request) {
     const session = familySession(request);
     if (!session) return fail("Acesso não autorizado.", 401);
     const body = await request.json();
+    if (body.action === "save" && !body.id && registrationsClosed()) return fail(REGISTRATION_CLOSED_MESSAGE, 403);
     const db = supabaseAdmin();
     if (await archivedLeadership(db, session)) return fail("Este cadastro está arquivado. Entre em contato com a coordenação.", 403);
 
@@ -132,6 +134,7 @@ export async function POST(request) {
       const ownership = session.role === "activist"
         ? { activist_id: session.id, leadership_id: session.leadershipId }
         : { activist_id: session.role === "admin" ? body.activistId || null : null, leadership_id: session.role === "admin" ? body.leaderId : session.id };
+      if (registrationsClosed()) return fail(REGISTRATION_CLOSED_MESSAGE, 403);
       const { data, error } = await db.from("families").insert({ ...next, ...ownership }).select("*").single();
       if (error) throw error;
       await audit(db, session, "create", data);

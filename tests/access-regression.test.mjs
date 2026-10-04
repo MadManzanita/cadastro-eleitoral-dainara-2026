@@ -5,6 +5,7 @@ import { fetchAllRows } from "../lib/database-pagination.mjs";
 
 async function loadRoute(path, imports, bindings) {
   let source = await readFile(new URL(path, import.meta.url), "utf8");
+  source = source.replace('import { registrationsClosed, REGISTRATION_CLOSED_MESSAGE } from "../../../lib/registration-window.mjs";', 'const registrationsClosed = () => false; const REGISTRATION_CLOSED_MESSAGE = "Closed";');
   for (const [statement, replacement] of imports) source = source.replace(statement, replacement);
   globalThis.__accessRegression = bindings;
   return import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}#${Math.random()}`);

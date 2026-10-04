@@ -9,6 +9,7 @@ import ActivityRecords from "./ActivityRecords";
 import PasswordRecovery from "../components/PasswordRecovery";
 import NeighborhoodTotals from "../components/NeighborhoodTotals";
 import TrustTransfers from "../components/TrustTransfers";
+import RegistrationCountdown from "../components/RegistrationCountdown";
 import { manausCoverage } from "../../lib/neighborhood-counts.mjs";
 
 const TSE = "https://www.tse.jus.br/servicos-eleitorais/autoatendimento-eleitoral";
@@ -1932,6 +1933,7 @@ export default function Portal() {
   if (view === "dashboard")
     content = admin ? (
       <>
+        <RegistrationCountdown />
         <div className="cards">
           <div className="metric">
             <div className="label">Total de cadastros</div>
@@ -1998,6 +2000,7 @@ export default function Portal() {
       </>
     ) : (
       <>
+        <RegistrationCountdown />
         <div className="cards">
           <div className="metric">
             <div className="label">Total de cadastros</div>
