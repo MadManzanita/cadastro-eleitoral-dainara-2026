@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { orderTermRecords, parseTermSelections, TermSelectionError } from "../lib/term-selection.mjs";
+import { formatTermAddress } from "../lib/term-document.mjs";
 
 const leader = "11111111-1111-4111-8111-111111111111";
 const activist = "22222222-2222-4222-8222-222222222222";
@@ -34,4 +35,13 @@ test("mantém o modelo original byte a byte", async () => {
   const file = await readFile(new URL("../public/modelos/modelo-termo-adesao.docx", import.meta.url));
   const hash = createHash("sha256").update(file).digest("hex").toUpperCase();
   assert.equal(hash, "FEA25DAEF31EAD1A0CD3C4C51DEB158012340F43CE197A20F8A73DB6EC9756E6");
+});
+
+test("acrescenta o bairro depois da rua e do número sem alterar os valores", () => {
+  assert.equal(
+    formatTermAddress({ address: "Rua das Flores, 123", neighborhood: "Centro" }),
+    "Rua das Flores, 123, Bairro: Centro",
+  );
+  assert.equal(formatTermAddress({ address: "Avenida Brasil, 45" }), "Avenida Brasil, 45");
+  assert.equal(formatTermAddress({ neighborhood: "Cidade Nova" }), "Bairro: Cidade Nova");
 });

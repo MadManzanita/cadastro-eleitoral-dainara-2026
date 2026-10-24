@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatTermAddress } from "../../lib/term-document.mjs";
 import styles from "./page.module.css";
 
 const cpfBR = (value) => {
@@ -26,7 +27,7 @@ function TermPages({ person }) {
           <p>Nome: <FieldValue wide>{person.name}</FieldValue></p>
           <p>CPF: <FieldValue>{cpfBR(person.cpf)}</FieldValue></p>
           <p>RG: <FieldValue /></p>
-          <p className={styles.identityGap}>Endereço: <FieldValue wide>{person.address}</FieldValue></p>
+          <p className={styles.identityGap}>Endereço: <FieldValue wide>{formatTermAddress(person)}</FieldValue></p>
         </div>
 
         <div className={styles.legalText}>
