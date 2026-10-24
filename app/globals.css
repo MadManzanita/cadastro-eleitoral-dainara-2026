@@ -28,3 +28,6 @@ button:disabled{cursor:not-allowed;opacity:.58;transform:none!important}
 @media(max-width:900px){.term-batch-bar{align-items:stretch;flex-direction:column}.term-batch-actions{justify-content:stretch}.term-batch-actions button{flex:1}.term-row-actions{align-items:flex-end;flex-direction:column}.activist-tags{align-items:flex-end}}
 @media(max-width:520px){.term-batch-actions{flex-direction:column}.term-batch-actions button{width:100%}.term-record-main{align-items:flex-start}.term-row-actions,.activist-tags{width:100%;align-items:stretch}.term-row-actions .term-link-button,.activist-tags .term-link-button{width:100%}}
 
+.activist-filter-bar{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(240px,.7fr);gap:14px;align-items:end;margin:16px 0}.activist-filter-bar .search{margin:0}.activist-leader-filter{display:flex;flex-direction:column;gap:7px}.activist-leader-filter span{font-size:13px;font-weight:850;color:#765e68}.activist-leader-filter select{width:100%;border:1px solid #ebcbd7;border-radius:12px;background:#fff;padding:14px 15px;outline:none;color:#49383f}.activist-leader-filter select:focus{border-color:#d98ba7;box-shadow:0 0 0 3px rgba(228,154,180,.14)}
+@media(max-width:700px){.activist-filter-bar{grid-template-columns:1fr}}
+

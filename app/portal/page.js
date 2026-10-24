@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { startLiveRefresh } from "../../lib/live-refresh.mjs";
+import { filterActivistsByLeadership } from "../../lib/activist-filter.mjs";
 import { AMAZONAS_MUNICIPALITIES, AMAZONAS_TERRITORIES, MANAUS_ZONES, getManausZone } from "../data/territories";
 import { MANAUS_MAP_ZONES } from "../data/manaus-map";
 import { PIX_BANKS } from "../data/banks";
@@ -1206,6 +1207,7 @@ export default function Portal() {
     [assessorEditorOpen, setAssessorEditorOpen] = useState(false),
     [editingAdmin, setEditingAdmin] = useState(null),
     [adminForm, setAdminForm] = useState({ name: "", email: "" }),
+    [activistLeaderFilter, setActivistLeaderFilter] = useState(""),
     [termSelections, setTermSelections] = useState([]);
 
   useEffect(() => {
@@ -1325,6 +1327,7 @@ export default function Portal() {
     setPassword("");
     setCode("");
     setSearch("");
+    setActivistLeaderFilter("");
     setDetail(null);
     setTermSelections([]);
     setView("dashboard");
@@ -1334,7 +1337,10 @@ export default function Portal() {
     mine = db.activists.filter((x) => x.leaderId === leaderId);
   const leaders = useMemo(() => db.leaderships.filter((x) => `${x.name} ${x.cpf} ${x.title}`.toLowerCase().includes(search.toLowerCase())), [db.leaderships, search]);
   const archivedLeaders = useMemo(() => db.archivedLeaderships.filter((x) => `${x.name} ${x.cpf} ${x.title}`.toLowerCase().includes(search.toLowerCase())), [db.archivedLeaderships, search]);
-  const acts = useMemo(() => db.activists.filter((x) => `${x.name} ${x.cpf} ${x.title}`.toLowerCase().includes(search.toLowerCase())), [db.activists, search]);
+  const acts = useMemo(
+    () => filterActivistsByLeadership(db.activists, activistLeaderFilter).filter((x) => `${x.name} ${x.cpf} ${x.title}`.toLowerCase().includes(search.toLowerCase())),
+    [db.activists, search, activistLeaderFilter],
+  );
   const termKey = (type, id) => `${type}:${id}`;
   const availableTermKeys = useMemo(() => {
     const keys = new Set(db.activists.map((item) => termKey("activist", item.id)));
@@ -2203,18 +2209,34 @@ export default function Portal() {
     );
   else if (view === "activists") {
     const list = admin ? acts : mine.filter((a) => `${a.name} ${a.cpf} ${a.title}`.toLowerCase().includes(search.toLowerCase()));
+    const selectedActivistLeader = admin ? db.leaderships.find((item) => item.id === activistLeaderFilter) : leader;
     content = (
       <div className="panel">
         <div className="page-head">
           <div>
             <h2>{admin ? "Ativistas" : "Meus ativistas"}</h2>
-            <p>{admin ? "A liderança aparece em cada linha para não misturar equipes." : `Liderança: ${leader?.name || "não cadastrada"}`}</p>
+            <p>{admin ? (selectedActivistLeader ? `Mostrando somente os ativistas de ${selectedActivistLeader.name}.` : "Use o filtro de liderança para visualizar somente uma equipe.") : `Liderança: ${leader?.name || "não cadastrada"}`}</p>
           </div>
           <button className="primary" onClick={() => startA()}>
             ＋ Adicionar ativista
           </button>
         </div>
-        <input className="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Pesquisar por nome, CPF ou título..." />
+        {admin ? (
+          <div className="activist-filter-bar">
+            <input className="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Pesquisar por nome, CPF ou título..." />
+            <label className="activist-leader-filter">
+              <span>Filtrar por liderança</span>
+              <select value={activistLeaderFilter} onChange={(event) => setActivistLeaderFilter(event.target.value)}>
+                <option value="">Todas as lideranças</option>
+                {[...db.leaderships].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")).map((item) => (
+                  <option key={item.id} value={item.id}>{item.name}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        ) : (
+          <input className="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Pesquisar por nome, CPF ou título..." />
+        )}
         <TermSelectionBar
           pageKeys={list.map((item) => termKey("activist", item.id))}
           selectedKeys={selectedTermKeys}
@@ -2254,7 +2276,7 @@ export default function Portal() {
             );
           })
         ) : (
-          <div className="empty">Nenhum ativista encontrado.</div>
+          <div className="empty">{selectedActivistLeader ? `Nenhum ativista encontrado para ${selectedActivistLeader.name}.` : "Nenhum ativista encontrado."}</div>
         )}
       </div>
     );
