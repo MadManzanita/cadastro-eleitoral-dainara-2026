@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { hashPassword, normalizeCpf, sessionCookie, sessionFromRequest, signSession, supabaseAdmin, verifyPassword } from "../../../lib/server-auth";
 import { isDuplicateRegistration } from "../../../lib/database-errors";
+import { registrationsClosed, REGISTRATION_CLOSED_MESSAGE } from "../../../lib/registration-window.mjs";
 
 export const runtime = "nodejs";
 const json = (body, status = 200) => NextResponse.json(body, { status });
@@ -39,6 +40,7 @@ export async function POST(request) {
     stage = "leitura da solicitação";
     const body = await request.json();
     const action = body?.action;
+    if (action === "register-leadership" && registrationsClosed()) return error(REGISTRATION_CLOSED_MESSAGE, 403);
     stage = "conexão com o banco";
     const db = supabaseAdmin();
 
@@ -101,10 +103,12 @@ export async function POST(request) {
       const values = {
         name, cpf, birth: body.birth || null, phone: body.phone || null, address: body.address || null,
         mother: body.mother || null, email: String(body.email || "").trim() || null, neighborhood: body.neighborhood || null,
+        municipality: String(body.municipality || "").trim() || null, manaus_zone: String(body.manausZone || "").trim() || null,
         cep: body.cep || null, title: onlyDigits(body.title).slice(0, 12) || null, electoral_zone: onlyDigits(body.zone).slice(0, 3) || null,
         electoral_section: onlyDigits(body.section).slice(0, 4) || null, pix: String(body.pix || "").trim() || null, pix_name: name,
         bank: body.bank || null, password_hash: hashPassword(temporaryPassword)
       };
+      if (registrationsClosed()) return error(REGISTRATION_CLOSED_MESSAGE, 403);
       const { data, error: insertError } = await db.from("leaderships").insert(values).select("*").single();
       if (insertError) throw insertError;
       return json({ ok: true, person: publicPerson(data), temporaryPassword }, 201);

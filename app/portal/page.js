@@ -1,11 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { startLiveRefresh } from "../../lib/live-refresh.mjs";
 import { AMAZONAS_MUNICIPALITIES, AMAZONAS_TERRITORIES, MANAUS_ZONES, getManausZone } from "../data/territories";
 import { MANAUS_MAP_ZONES } from "../data/manaus-map";
 import { PIX_BANKS } from "../data/banks";
 import ActivityRecords from "./ActivityRecords";
 import PasswordRecovery from "../components/PasswordRecovery";
+import NeighborhoodTotals from "../components/NeighborhoodTotals";
+import TrustTransfers from "../components/TrustTransfers";
+import RegistrationCountdown from "../components/RegistrationCountdown";
+import { manausCoverage } from "../../lib/neighborhood-counts.mjs";
 
 const TSE = "https://www.tse.jus.br/servicos-eleitorais/autoatendimento-eleitoral";
 const KEY = "cadastro-eleitoral-dainara-2026-v9";
@@ -156,7 +161,7 @@ function HolderNameField({ f }) {
 }
 
 function TerritoryFields({ f, setF }) {
-  const inferredMunicipality = f.municipality || (MANAUS_ZONES[f.neighborhood] ? "Manaus" : "");
+  const inferredMunicipality = f.municipality || "";
   const neighborhoods = inferredMunicipality ? AMAZONAS_TERRITORIES[inferredMunicipality] || [] : [];
   const manausZone = inferredMunicipality === "Manaus" ? getManausZone(f.neighborhood || "") : "";
   return (
@@ -684,10 +689,39 @@ function Detail({ person, title, leader, onBack, onEdit, team, credential, actio
   );
 }
 
+function TermSelectionBar({ pageKeys, selectedKeys, onTogglePage, onPrint, onClear }) {
+  const allOnPage = pageKeys.length > 0 && pageKeys.every((key) => selectedKeys.includes(key));
+  return (
+    <section className="term-batch-bar" aria-label="Seleção de termos de adesão">
+      <div>
+        <b>Termos de adesão</b>
+        <span>Selecione vários cadastros, inclusive em telas diferentes, e imprima tudo em um único lote.</span>
+      </div>
+      <div className="term-batch-actions">
+        <button type="button" className="outline" disabled={!pageKeys.length} onClick={() => onTogglePage(pageKeys)}>
+          {allOnPage ? "Desmarcar esta lista" : "Selecionar esta lista"}
+        </button>
+        {selectedKeys.length > 0 && <button type="button" className="outline" onClick={onClear}>Limpar seleção</button>}
+        <button type="button" className="primary" disabled={!selectedKeys.length} onClick={() => onPrint(selectedKeys)}>
+          Imprimir selecionados ({selectedKeys.length})
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function TermCheckbox({ checked, name, onChange }) {
+  return (
+    <label className="term-check" onClick={(event) => event.stopPropagation()}>
+      <input type="checkbox" checked={checked} onChange={onChange} aria-label={`Selecionar termo de ${name}`} />
+      <span>Selecionar</span>
+    </label>
+  );
+}
+
 function ManausCoverageMap({ db }) {
   const [hovered, setHovered] = useState(null);
-  const allPeople = [...(db.leaderships || []), ...(db.activists || []), ...(db.families || [])];
-  const counts = Object.fromEntries(MANAUS_MAP_ZONES.map(({ name }) => [name, allPeople.filter((person) => MANAUS_ZONES[person.neighborhood] === name).length]));
+  const { counts, total, unzoned, unknownMunicipality } = manausCoverage(db);
   const active = MANAUS_MAP_ZONES.find((zone) => zone.name === hovered);
 
   const getColor = (count, isActive) => {
@@ -704,6 +738,8 @@ function ManausCoverageMap({ db }) {
         <div>
           <h2>Mapa de cadastros por zona</h2>
           <p>Manaus — bairros oficiais por zona administrativa.</p>
+          <p><b>{total} cadastro(s) com município Manaus</b> · {total - unzoned} distribuído(s) nas zonas{unzoned > 0 ? ` · ${unzoned} sem zona identificada` : ""}.</p>
+          {unknownMunicipality > 0 && <p>{unknownMunicipality} cadastro(s) sem município informado estão fora deste mapa. Confira-os no filtro “Município não informado”.</p>}
         </div>
       </div>
       <div style={{ position: "relative", maxWidth: 860, margin: "12px auto 0" }}>
@@ -810,30 +846,30 @@ function ManausCoverageMap({ db }) {
   );
 }
 
-function TrustNetworkManager({ db, setDb, admin, remote }) {
+function TrustNetworkManager({ db, setDb, admin, remote, scopedLeaderId = "" }) {
+  const savingLock = useRef(false);
+  const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState(""),
     [activistFilter, setActivistFilter] = useState(""),
-    [leaderFilter, setLeaderFilter] = useState(""),
+    [leaderFilter, setLeaderFilter] = useState(scopedLeaderId),
     [neighborhoodFilter, setNeighborhoodFilter] = useState(""),
     [originFilter, setOriginFilter] = useState(""),
-    [showTransfer, setShowTransfer] = useState(false),
-    [transferSelection, setTransferSelection] = useState([]),
     [editingFamily, setEditingFamily] = useState(null),
     [history, setHistory] = useState([]),
     [notice, setNotice] = useState("");
-  const families = db.families || [];
+  const families = (db.families || []).filter((p) => !scopedLeaderId || p.leaderId === scopedLeaderId);
   const neighborhoods = [...new Set(families.map((x) => x.neighborhood).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
   const activistsForFilter = leaderFilter ? db.activists.filter((activist) => activist.leaderId === leaderFilter) : db.activists;
   const list = families.filter((item) => {
     const activist = db.activists.find((x) => x.id === item.activistId);
-    const transferredActivist = db.activists.find((x) => x.id === item.transferredActivistId);
     const leader = db.leaderships.find((x) => x.id === item.leaderId);
-    const text = `${item.name} ${item.cpf} ${activist?.name || ""} ${transferredActivist?.name || ""} ${leader?.name || ""}`.toLowerCase();
-    const origin = item.sourceRole === "activist" ? "activist" : "leader";
-    return text.includes(query.toLowerCase()) && (!activistFilter || item.activistId === activistFilter || item.transferredActivistId === activistFilter) && (!leaderFilter || item.leaderId === leaderFilter) && (!neighborhoodFilter || item.neighborhood === neighborhoodFilter) && (!originFilter || origin === originFilter);
+    const text = `${item.name} ${item.cpf} ${activist?.name || ""} ${leader?.name || ""}`.toLowerCase();
+    const origin = item.activistId ? "activist" : "leader";
+    return text.includes(query.toLowerCase()) && (!activistFilter || item.activistId === activistFilter) && (!leaderFilter || item.leaderId === leaderFilter) && (!neighborhoodFilter || item.neighborhood === neighborhoodFilter) && (!originFilter || origin === originFilter);
   });
   const save = async (event) => {
     event.preventDefault();
+    if (savingLock.current) return;
     setNotice("");
     if (!editingFamily.name?.trim() || !editingFamily.address?.trim() || !editingFamily.municipality || !editingFamily.neighborhood) {
       setNotice("Informe nome, endereço, município e bairro/localidade.");
@@ -843,6 +879,12 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
       setNotice("O CPF informado é inválido.");
       return;
     }
+    if (admin && !editingFamily.id && !editingFamily.leaderId) {
+      setNotice("Selecione a liderança responsável.");
+      return;
+    }
+    savingLock.current = true;
+    setSaving(true);
     try {
       const result = await remote("/api/families", {
         method: "POST",
@@ -853,9 +895,12 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
         families: editingFamily.id ? current.families.map((x) => (x.id === result.item.id ? result.item : x)) : [result.item, ...current.families],
       }));
       setEditingFamily(null);
-      setNotice(editingFamily.id ? "Cadastro atualizado." : "Pessoa cadastrada pela liderança.");
+      setNotice(editingFamily.id ? "Cadastro atualizado." : result.item.activistId ? "Pessoa cadastrada na rede do ativista." : "Pessoa cadastrada na rede da liderança.");
     } catch (error) {
       setNotice(error.message);
+    } finally {
+      savingLock.current = false;
+      setSaving(false);
     }
   };
   const remove = async (item) => {
@@ -886,29 +931,8 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
       setNotice(error.message);
     }
   };
-  const transferredActivistIds = new Set(families.map((item) => item.transferredActivistId).filter(Boolean));
-  const transferableActivists = db.activists.filter((activist) => !transferredActivistIds.has(activist.id));
-  const transferActivists = async () => {
-    if (!transferSelection.length) {
-      setNotice("Selecione pelo menos um ativista para transferir.");
-      return;
-    }
-    try {
-      const result = await remote("/api/families", {
-        method: "POST",
-        body: JSON.stringify({ action: "transfer-activists", activistIds: transferSelection }),
-      });
-      setDb((current) => ({ ...current, families: [...(result.items || []), ...current.families] }));
-      setTransferSelection([]);
-      setShowTransfer(false);
-      setNotice(`${result.transferred || 0} ativista(s) transferido(s) para a Rede de confiança.${result.skipped ? ` ${result.skipped} já estava(m) transferido(s).` : ""}`);
-    } catch (error) {
-      setNotice(error.message);
-    }
-  };
   const renderRow = (item) => {
     const activist = db.activists.find((x) => x.id === item.activistId);
-    const transferredActivist = db.activists.find((x) => x.id === item.transferredActivistId);
     const leader = db.leaderships.find((x) => x.id === item.leaderId);
     return (
       <div className="assessor-admin-row" key={item.id}>
@@ -917,14 +941,7 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
           <small>
             {item.cpf ? cpfBR(item.cpf) : "CPF não informado"} • {item.neighborhood || "Sem bairro"}
           </small>
-          <span>
-            {item.sourceRole === "activist"
-              ? `Cadastrado pelo ativista: ${activist?.name || "Não localizado"}`
-              : item.sourceRole === "admin"
-                ? "Cadastrado pela administração"
-                : `Cadastrado pela liderança: ${leader?.name || "Não localizada"}`}
-          </span>
-          {item.transferredActivistId && <span>Transferido do cadastro do ativista: {transferredActivist?.name || "Não localizado"}</span>}
+          <span>{item.activistId ? `Ativista responsável: ${activist?.name || "Não localizado"}` : `Cadastro direto da liderança: ${leader?.name || "Não localizada"}`}</span>
           <span>Liderança responsável: {leader?.name || "Não localizada"}</span>
         </div>
         <div className="assessor-actions">
@@ -950,15 +967,15 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
   const groups = [
     {
       key: "leader",
-      title: "Cadastros feitos pela liderança ou administração",
-      description: "Pessoas incluídas diretamente ou transferidas para a Rede de confiança.",
-      items: list.filter((item) => item.sourceRole !== "activist"),
+      title: "Cadastros feitos pela liderança",
+      description: "Pessoas incluídas diretamente pela liderança responsável.",
+      items: list.filter((item) => !item.activistId),
     },
     {
       key: "activist",
       title: "Cadastros feitos pelos ativistas",
       description: "Pessoas incluídas pelos ativistas através do link da liderança.",
-      items: list.filter((item) => item.sourceRole === "activist"),
+      items: list.filter((item) => item.activistId),
     },
   ];
   return (
@@ -966,61 +983,21 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
       <div className="page-head">
         <div>
           <h2>Rede de confiança</h2>
-          <p>{admin ? "Todas as redes cadastradas no sistema, organizadas pela origem do cadastro." : "Cadastros da própria liderança e dos ativistas vinculados, organizados separadamente."}</p>
+          <p>{scopedLeaderId ? "Rede desta liderança e dos ativistas vinculados. Ao cadastrar, escolha a rede da liderança ou de um dos seus ativistas." : admin ? "Todas as redes cadastradas no sistema, organizadas pela origem do cadastro." : "Cadastros da própria liderança e dos ativistas vinculados, organizados separadamente."}</p>
         </div>
-        <div className="page-head-actions">
-          <button className="outline" onClick={() => setShowTransfer((current) => !current)}>
-            ⇄ Transferir ativistas
-          </button>
-        {!admin && (
+        {(
           <button
             className="primary"
             onClick={() => {
               setHistory([]);
               setNotice("");
-              setEditingFamily({ ...EMPTY });
+              setEditingFamily({ ...EMPTY, leaderId: scopedLeaderId || leaderFilter, activistId: "" });
             }}
           >
             ＋ Cadastrar pessoa
           </button>
         )}
-        </div>
       </div>
-      {showTransfer && (
-        <section className="trust-transfer-panel">
-          <div>
-            <h3>Transferir ativistas para a Rede de confiança</h3>
-            <p>Selecione os cadastros desejados. O acesso e o cadastro original do ativista serão preservados.</p>
-          </div>
-          {transferableActivists.length ? (
-            <>
-              <div className="trust-transfer-list">
-                {transferableActivists.map((activist) => {
-                  const leader = db.leaderships.find((item) => item.id === activist.leaderId);
-                  return (
-                    <label className="trust-transfer-item" key={activist.id}>
-                      <input
-                        type="checkbox"
-                        checked={transferSelection.includes(activist.id)}
-                        onChange={(event) =>
-                          setTransferSelection((current) =>
-                            event.target.checked ? [...current, activist.id] : current.filter((id) => id !== activist.id),
-                          )
-                        }
-                      />
-                      <span><b>{activist.name}</b><small>{admin ? leader?.name || "Sem liderança" : activist.neighborhood || "Bairro não informado"}</small></span>
-                    </label>
-                  );
-                })}
-              </div>
-              <div className="trust-transfer-actions">
-                <button type="button" className="outline" onClick={() => setTransferSelection(transferableActivists.map((item) => item.id))}>Selecionar todos</button>
-                <button type="button" className="primary" onClick={transferActivists}>Transferir selecionados ({transferSelection.length})</button>
-              </div>
-            </>
-          ) : <div className="empty compact">Todos os ativistas disponíveis já foram transferidos.</div>}
-        </section>
-      )}
       <input className="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por nome ou CPF..." />
       <div className="form-grid three">
         <label className="field">
@@ -1031,7 +1008,7 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
             <option value="activist">Ativista</option>
           </select>
         </label>
-        {admin && (
+        {admin && !scopedLeaderId && (
           <label className="field">
             <span>Filtrar por liderança</span>
             <select
@@ -1081,16 +1058,16 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
           <h3>Histórico básico</h3>
           {history.map((h) => (
             <p key={h.id}>
-              <b>{h.action === "update" ? "Edição" : h.action === "delete" ? "Exclusão" : "Cadastro"}</b> — {new Date(h.created_at).toLocaleString("pt-BR")} — perfil {h.actor_role}
+              <b>{h.snapshot?.operation === "transfer" ? "Transferência" : h.snapshot?.operation === "convert-activist" ? "Conversão de ativista" : h.action === "update" ? "Edição" : h.action === "delete" ? "Exclusão" : "Cadastro"}</b> — {new Date(h.created_at).toLocaleString("pt-BR")} — perfil {h.actor_role}
             </p>
           ))}
         </div>
       )}
       {editingFamily && (
-        <form onSubmit={save} className="assessor-editor">
+        <form onSubmit={save} className="assessor-editor"><fieldset disabled={saving} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
           <div className="editor-title">
             <div>
-              <h3>{editingFamily.id ? "Editar pessoa da rede" : "Cadastro da liderança na Rede de confiança"}</h3>
+              <h3>{editingFamily.id ? "Editar pessoa da rede" : "Cadastrar pessoa na Rede de confiança"}</h3>
               <p>Somente nome, endereço e localização territorial são obrigatórios.</p>
             </div>
             <button type="button" className="back small-back" onClick={() => setEditingFamily(null)}>
@@ -1098,6 +1075,18 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
             </button>
           </div>
           {editingFamily.id && <div className="context-badge">Os vínculos com ativista e liderança serão preservados.</div>}
+          {admin && !editingFamily.id && <label className="field"><span>Liderança responsável</span>
+            <select required value={editingFamily.leaderId || ""} disabled={Boolean(scopedLeaderId)} onChange={(e) => setEditingFamily({ ...editingFamily, leaderId: e.target.value, activistId: "" })}>
+              <option value="">Selecione a liderança</option>
+              {db.leaderships.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </select>
+          </label>}
+          {admin && !editingFamily.id && <label className="field"><span>Rede de destino</span>
+            <select value={editingFamily.activistId || ""} disabled={!editingFamily.leaderId} onChange={(e) => setEditingFamily({ ...editingFamily, activistId: e.target.value })}>
+              <option value="">Rede da própria liderança</option>
+              {db.activists.filter((a) => a.leaderId === editingFamily.leaderId).map((a) => <option key={a.id} value={a.id}>Rede do ativista: {a.name}</option>)}
+            </select>
+          </label>}
           <h3>Dados pessoais</h3>
           <div className="form-grid">
             <Field f={editingFamily} setF={setEditingFamily} n="name" label="Nome completo" required />
@@ -1116,8 +1105,8 @@ function TrustNetworkManager({ db, setDb, admin, remote }) {
             <Field f={editingFamily} setF={setEditingFamily} n="zone" label="Zona" />
             <Field f={editingFamily} setF={setEditingFamily} n="section" label="Seção" />
           </div>
-          <button className="primary">{editingFamily.id ? "Salvar alterações" : "Concluir cadastro"}</button>
-        </form>
+          <button className="primary" disabled={saving}>{saving ? "Salvando…" : editingFamily.id ? "Salvar alterações" : "Concluir cadastro"}</button>
+        </fieldset></form>
       )}
       {list.length ? (
         groups.map((group) => (
@@ -1160,6 +1149,7 @@ function Side({ admin, view, setView, logout, newL, newA, exportExcel, exportCSV
             {item("archived", "Arquivados", "▤")}
             {item("activists", "Ativistas", "♧")}
             {item("trust-network", "Rede de confiança", "♡")}
+            {item("trust-transfers", "Transferir cadastros", "⇄")}
             {item("daily-activities", "Atividades diárias", "▣")}
             {item("admins", "Administradores", "◉")}
             {item("assessors", "Assessoria", "☎")}
@@ -1215,7 +1205,8 @@ export default function Portal() {
     [editingAssessor, setEditingAssessor] = useState(null),
     [assessorEditorOpen, setAssessorEditorOpen] = useState(false),
     [editingAdmin, setEditingAdmin] = useState(null),
-    [adminForm, setAdminForm] = useState({ name: "", email: "" });
+    [adminForm, setAdminForm] = useState({ name: "", email: "" }),
+    [termSelections, setTermSelections] = useState([]);
 
   useEffect(() => {
     try {
@@ -1254,7 +1245,11 @@ export default function Portal() {
     }
   }, [mode, generatedPerson]);
 
+  const writes = useRef({ active: 0, version: 0 });
   const remote = async (path, options = {}) => {
+    const mutation = options.method && options.method !== "GET";
+    if (mutation) { writes.current.active++; writes.current.version++; }
+    try {
     const response = await fetch(path, {
       ...options,
       headers: {
@@ -1265,9 +1260,12 @@ export default function Portal() {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || "Não foi possível concluir a operação.");
     return payload;
+    } finally {
+      if (mutation) { writes.current.active--; writes.current.version++; }
+    }
   };
   const loadRemote = async () => {
-    const payload = await remote("/api/data");
+    const payload = await remote("/api/data", { cache: "no-store" });
     setDb({ ...fresh(), ...payload.db });
     return payload;
   };
@@ -1292,6 +1290,24 @@ export default function Portal() {
       active = false;
     };
   }, []);
+  useEffect(() => {
+    if (!["admin-area", "leader-area"].includes(mode) || !role) return;
+    return startLiveRefresh({
+      isReady: () => writes.current.active === 0,
+      read: async (signal) => {
+        const version = writes.current.version;
+        const payload = await remote("/api/data", { cache: "no-store", signal });
+        return { payload, version };
+      },
+      apply: ({ payload, version }) => {
+        if (writes.current.active === 0 && writes.current.version === version) {
+          setDb({ ...fresh(), ...payload.db });
+          setMsg(current => current === "Conexão temporariamente indisponível. Os dados exibidos serão atualizados automaticamente." ? "" : current);
+        }
+      },
+      onError: () => setMsg("Conexão temporariamente indisponível. Os dados exibidos serão atualizados automaticamente."),
+    });
+  }, [mode, role]);
   const go = (next) => {
     setMode(next);
     setMsg("");
@@ -1310,6 +1326,7 @@ export default function Portal() {
     setCode("");
     setSearch("");
     setDetail(null);
+    setTermSelections([]);
     setView("dashboard");
     go("home");
   };
@@ -1318,6 +1335,33 @@ export default function Portal() {
   const leaders = useMemo(() => db.leaderships.filter((x) => `${x.name} ${x.cpf} ${x.title}`.toLowerCase().includes(search.toLowerCase())), [db.leaderships, search]);
   const archivedLeaders = useMemo(() => db.archivedLeaderships.filter((x) => `${x.name} ${x.cpf} ${x.title}`.toLowerCase().includes(search.toLowerCase())), [db.archivedLeaderships, search]);
   const acts = useMemo(() => db.activists.filter((x) => `${x.name} ${x.cpf} ${x.title}`.toLowerCase().includes(search.toLowerCase())), [db.activists, search]);
+  const termKey = (type, id) => `${type}:${id}`;
+  const availableTermKeys = useMemo(() => {
+    const keys = new Set(db.activists.map((item) => termKey("activist", item.id)));
+    for (const item of db.leaderships) {
+      if (role === "admin" || item.id === leaderId) keys.add(termKey("leadership", item.id));
+    }
+    return keys;
+  }, [db.activists, db.leaderships, role, leaderId]);
+  const selectedTermKeys = termSelections.filter((key) => availableTermKeys.has(key));
+  const toggleTermSelection = (key) => setTermSelections((current) => (current.includes(key) ? current.filter((item) => item !== key) : [...current, key]));
+  const toggleTermPage = (keys) => setTermSelections((current) => {
+    const allSelected = keys.length > 0 && keys.every((key) => current.includes(key));
+    return allSelected ? current.filter((key) => !keys.includes(key)) : [...new Set([...current, ...keys])];
+  });
+  const printTerms = (keys) => {
+    const unique = [...new Set(keys || [])];
+    if (!unique.length) return setMsg("Selecione pelo menos um cadastro para imprimir o termo de adesão.");
+    if (unique.some((key) => !availableTermKeys.has(key))) {
+      setTermSelections(unique.filter((key) => availableTermKeys.has(key)));
+      return setMsg("A seleção mudou porque um cadastro não está mais disponível. Confira e tente novamente.");
+    }
+    const url = new URL("/termos", window.location.origin);
+    unique.forEach((key) => url.searchParams.append("person", key));
+    const opened = window.open(url.toString(), "_blank");
+    if (opened) opened.opener = null;
+    else window.location.assign(url.toString());
+  };
 
   const enterAdmin = async () => {
     if (!cpfOK(cpf) || password.length < 8) return setMsg("Informe CPF e senha de administrador.");
@@ -1948,6 +1992,7 @@ export default function Portal() {
   if (view === "dashboard")
     content = admin ? (
       <>
+        <RegistrationCountdown />
         <div className="cards">
           <div className="metric">
             <div className="label">Total de cadastros</div>
@@ -2009,10 +2054,12 @@ export default function Portal() {
             </button>
           </div>
         </div>
+        <NeighborhoodTotals db={db} />
         <ManausCoverageMap db={db} />
       </>
     ) : (
       <>
+        <RegistrationCountdown />
         <div className="cards">
           <div className="metric">
             <div className="label">Total de cadastros</div>
@@ -2079,6 +2126,13 @@ export default function Portal() {
           </button>
         </div>
         <input className="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Pesquisar por nome, CPF ou título..." />
+        <TermSelectionBar
+          pageKeys={leaders.map((item) => termKey("leadership", item.id))}
+          selectedKeys={selectedTermKeys}
+          onTogglePage={toggleTermPage}
+          onPrint={printTerms}
+          onClear={() => setTermSelections([])}
+        />
         {leaders.length ? (
           leaders.map((l) => (
             <div
@@ -2089,13 +2143,21 @@ export default function Portal() {
                 setView("leadership-detail");
               }}
             >
-              <div>
-                <b>{l.name}</b>
-                <small>
-                  {cpfBR(l.cpf)} • Título {l.title}
-                </small>
+              <div className="term-record-main">
+                <TermCheckbox checked={selectedTermKeys.includes(termKey("leadership", l.id))} name={l.name} onChange={() => toggleTermSelection(termKey("leadership", l.id))} />
+                <div>
+                  <b>{l.name}</b>
+                  <small>
+                    {cpfBR(l.cpf)} • Título {l.title}
+                  </small>
+                </div>
               </div>
-              <span>{db.activists.filter((a) => a.leaderId === l.id).length} ativista(s) →</span>
+              <div className="term-row-actions">
+                <button type="button" className="term-link-button" onClick={(event) => { event.stopPropagation(); printTerms([termKey("leadership", l.id)]); }}>
+                  Termo de adesão
+                </button>
+                <span>{db.activists.filter((a) => a.leaderId === l.id).length} ativista(s) →</span>
+              </div>
             </div>
           ))
         ) : (
@@ -2153,6 +2215,13 @@ export default function Portal() {
           </button>
         </div>
         <input className="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Pesquisar por nome, CPF ou título..." />
+        <TermSelectionBar
+          pageKeys={list.map((item) => termKey("activist", item.id))}
+          selectedKeys={selectedTermKeys}
+          onTogglePage={toggleTermPage}
+          onPrint={printTerms}
+          onClear={() => setTermSelections([])}
+        />
         {list.length ? (
           list.map((a) => {
             const l = db.leaderships.find((x) => x.id === a.leaderId);
@@ -2165,13 +2234,19 @@ export default function Portal() {
                   setView("activist-detail");
                 }}
               >
-                <div>
-                  <b>{a.name}</b>
-                  <small>
-                    {cpfBR(a.cpf)} • Título {a.title}
-                  </small>
+                <div className="term-record-main">
+                  <TermCheckbox checked={selectedTermKeys.includes(termKey("activist", a.id))} name={a.name} onChange={() => toggleTermSelection(termKey("activist", a.id))} />
+                  <div>
+                    <b>{a.name}</b>
+                    <small>
+                      {cpfBR(a.cpf)} • Título {a.title}
+                    </small>
+                  </div>
                 </div>
                 <div className="activist-tags">
+                  <button type="button" className="term-link-button" onClick={(event) => { event.stopPropagation(); printTerms([termKey("activist", a.id)]); }}>
+                    Termo de adesão
+                  </button>
                   <span className="leader-tag">👤 {l?.name || "Sem liderança"}</span>
                   <span className={`credential-status ${a.trustCredentialed ? "ready" : "pending"}`}>{a.trustCredentialed ? "Credenciado" : "Pendente"}</span>
                 </div>
@@ -2184,6 +2259,7 @@ export default function Portal() {
       </div>
     );
   } else if (view === "trust-network") content = <TrustNetworkManager db={db} setDb={setDb} admin={admin} remote={remote} />;
+  else if (view === "trust-transfers" && admin) content = <TrustTransfers db={db} remote={remote} reload={loadRemote} />;
   else if (view === "daily-activities") content = <ActivityRecords admin={admin} />;
   else if (view === "leadership-detail" && admin) {
     const l = db.leaderships.find((x) => x.id === detail),
@@ -2196,6 +2272,12 @@ export default function Portal() {
         onEdit={() => edit(l, "leader")}
         actions={
           <>
+            <button className="primary" onClick={() => printTerms([termKey("leadership", l.id)])}>
+              Termo de adesão
+            </button>
+            <button className="outline" onClick={() => toggleTermSelection(termKey("leadership", l.id))}>
+              {selectedTermKeys.includes(termKey("leadership", l.id)) ? "Remover da seleção" : "Selecionar termo"}
+            </button>
             <button className="outline" onClick={() => archiveLeadership(l)}>
               Arquivar
             </button>
@@ -2260,6 +2342,7 @@ export default function Portal() {
             ) : (
               <div className="empty">Nenhum ativista vinculado.</div>
             )}
+            {l && <TrustNetworkManager key={l.id} db={db} setDb={setDb} admin={admin} remote={remote} scopedLeaderId={l.id} />}
           </div>
         }
       />
@@ -2275,9 +2358,17 @@ export default function Portal() {
         onBack={() => setView("activists")}
         onEdit={() => edit(a, "activist")}
         actions={
-          <button className="danger" onClick={() => deleteActivist(a)}>
-            Excluir ativista
-          </button>
+          <>
+            <button className="primary" onClick={() => printTerms([termKey("activist", a.id)])}>
+              Termo de adesão
+            </button>
+            <button className="outline" onClick={() => toggleTermSelection(termKey("activist", a.id))}>
+              {selectedTermKeys.includes(termKey("activist", a.id)) ? "Remover da seleção" : "Selecionar termo"}
+            </button>
+            <button className="danger" onClick={() => deleteActivist(a)}>
+              Excluir ativista
+            </button>
+          </>
         }
         credential={
           admin ? (
@@ -2316,7 +2407,7 @@ export default function Portal() {
         }
       />
     );
-  } else if (view === "profile" && !admin) content = <Detail title="Meu cadastro" person={leader} onBack={() => setView("dashboard")} onEdit={() => leader && edit(leader, "leader")} />;
+  } else if (view === "profile" && !admin) content = <Detail title="Meu cadastro" person={leader} onBack={() => setView("dashboard")} onEdit={() => leader && edit(leader, "leader")} actions={leader ? <><button className="primary" onClick={() => printTerms([termKey("leadership", leader.id)])}>Termo de adesão</button><button className="outline" onClick={() => toggleTermSelection(termKey("leadership", leader.id))}>{selectedTermKeys.includes(termKey("leadership", leader.id)) ? "Remover da seleção" : "Selecionar termo"}</button>{selectedTermKeys.length > 0 && <button className="outline" onClick={() => printTerms(selectedTermKeys)}>Imprimir selecionados ({selectedTermKeys.length})</button>}</> : null} />;
   else if (view === "assessors" && admin)
     content = (
       <div className="panel">

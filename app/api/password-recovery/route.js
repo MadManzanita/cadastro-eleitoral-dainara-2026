@@ -9,11 +9,13 @@ const json = (body, status = 200) => NextResponse.json(body, { status, headers: 
 const uuid = (value) => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 
 export async function POST(request) {
+  let stage = "request";
   try {
     const origin = request.headers.get("origin");
     if (origin && origin !== new URL(request.url).origin) return json({ error: "Origem inválida." }, 403);
     if (!request.headers.get("content-type")?.includes("application/json")) return json({ error: "Formato inválido." }, 415);
     const body = await request.json();
+    stage = String(body.action || "request");
     const db = supabaseAdmin();
     if (body.action === "verify") {
       if (!uuid(body.challengeId) || !/^\d{6}$/.test(String(body.code || ""))) {
@@ -63,36 +65,49 @@ export async function POST(request) {
     if (body.role === "activist") query = query.eq("leadership_id", body.leadershipId);
     const { data: person, error: lookupError } = await query.maybeSingle();
     if (lookupError) throw lookupError;
-    if (!person || person.archived_at) return accepted();
+    if (!person || person.archived_at) {
+      console.info("password recovery: no eligible account");
+      return accepted();
+    }
     if (body.role === "activist") {
       const { data: leader, error } = await db.from("leaderships").select("id,archived_at").eq("id", person.leadership_id).maybeSingle();
       if (error) throw error;
       if (!leader || leader.archived_at) return accepted();
     }
     const phone = mobileNumber(person.phone);
-    if (!phone) return accepted();
+    if (!phone) {
+      console.info("password recovery: registered mobile unavailable");
+      return accepted();
+    }
     const code = newCode();
     const { data: reserved, error: reserveError } = await db.rpc("reserve_password_recovery", {
       p_id: id, p_role: body.role, p_person_id: person.id, p_phone: phone,
       p_code_hash: recoveryHash(`${id}:${code}`),
     });
     if (reserveError) throw reserveError;
-    if (!reserved) return accepted();
+    if (!reserved) {
+      console.info("password recovery: phone request limit reached");
+      return accepted();
+    }
     try {
       const smsgo = new SMSGo({
         apiKey: process.env.SMSGO_KEY,
         fetch: (url, options) => fetch(url, { ...options, signal: AbortSignal.timeout(10_000) }),
       });
       await smsgo.send({ phone, message: `Cadastro Eleitoral: codigo ${code} para trocar sua senha. Valido por 5 minutos. Nao compartilhe.`, smsTypeId: 2 });
-    } catch {
+      // A test key accepts simulated requests but never delivers the SMS.
+      if (smsgo.mode === "test") throw new Error("SMS simulation unavailable for recovery");
+      console.info("password recovery: SMS provider accepted request");
+    } catch (cause) {
       await db.from("password_recovery_challenges").update({ consumed_at: new Date().toISOString() }).eq("id", id);
       // Do not expose provider details, phone, CPF, code or API key.
-      console.error("password recovery: SMS delivery request failed");
+      console.error("password recovery: SMS delivery request failed", { status: Number.isInteger(cause?.status) ? cause.status : null, simulated: cause?.message === "SMS simulation unavailable for recovery" });
       return json({ error: "Não foi possível enviar o SMS agora. Aguarde um minuto e tente novamente." }, 503);
     }
     return accepted();
-  } catch {
-    console.error("password recovery: request failed");
+  } catch (cause) {
+    // Log only known operation names and database codes, never request data.
+    console.error("password recovery: request failed", { stage: ["request", "verify", "reset"].includes(stage) ? stage : "request", code: /^[A-Z0-9]{5,8}$/.test(String(cause?.code || "")) ? cause.code : null });
     return json({ error: "Não foi possível concluir a recuperação. Tente novamente ou procure a coordenação." }, 503);
   }
 }

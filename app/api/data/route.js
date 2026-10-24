@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { sessionFromRequest, supabaseAdmin } from "../../../lib/server-auth";
-import { isDuplicateRegistration } from "../../../lib/database-errors";
+import { fetchAllRows } from "../../../lib/database-pagination.mjs";
+import { registrationsClosed, REGISTRATION_CLOSED_MESSAGE } from "../../../lib/registration-window.mjs";
+import { isDuplicateRegistration, isMissingOptionalHistory } from "../../../lib/database-errors";
 
 export const runtime = "nodejs";
 const fail = (error, status) => NextResponse.json({ error }, { status });
@@ -17,6 +19,8 @@ function leadership(row) {
     mother: row.mother,
     email: row.email,
     neighborhood: row.neighborhood,
+    municipality: row.municipality,
+    manausZone: row.manaus_zone,
     cep: row.cep,
     title: row.title,
     zone: row.electoral_zone,
@@ -41,6 +45,8 @@ function activist(row, credential) {
     mother: row.mother,
     email: row.email,
     neighborhood: row.neighborhood,
+    municipality: row.municipality,
+    manausZone: row.manaus_zone,
     cep: row.cep,
     title: row.title,
     zone: row.electoral_zone,
@@ -118,7 +124,14 @@ export async function GET(request) {
     const familiesQuery = session.role === "admin" ? db.from("families").select("*").order("created_at", { ascending: false }) : db.from("families").select("*").eq("leadership_id", session.id).order("created_at", { ascending: false });
     const credentialsQuery = session.role === "admin" ? db.from("sms_challenges").select("activist_id,created_at").eq("phone", "TRUST_PASSWORD").order("created_at", { ascending: false }) : db.from("sms_challenges").select("activist_id,created_at").eq("phone", "TRUST_PASSWORD").eq("leadership_id", session.id).order("created_at", { ascending: false });
     const historyQuery = session.role === "admin" ? db.from("trust_network_history").select("family_id,actor_role,snapshot,created_at").eq("action", "create").order("created_at", { ascending: true }) : db.from("trust_network_history").select("family_id,actor_role,snapshot,created_at").eq("action", "create").eq("leadership_id", session.id).order("created_at", { ascending: true });
-    const [leaderships, activists, assessors, admins, families, credentials, histories] = await Promise.all([leadershipQuery, activistsQuery, assessorQuery, session.role === "admin" ? db.from("admins").select("id,name,cpf,email,created_at,updated_at").order("created_at", { ascending: false }) : Promise.resolve({ data: [] }), familiesQuery, credentialsQuery, historyQuery]);
+    const [leaderships, activists, assessors, admins, families, credentials, histories] = await Promise.all([fetchAllRows(leadershipQuery), fetchAllRows(activistsQuery), fetchAllRows(assessorQuery), session.role === "admin" ? fetchAllRows(db.from("admins").select("id,name,cpf,email,created_at,updated_at").order("created_at", { ascending: false })) : Promise.resolve({ data: [] }), fetchAllRows(familiesQuery), fetchAllRows(credentialsQuery), fetchAllRows(historyQuery)]);
+    // Older databases may not have the optional audit history yet.
+    // Keep account access working; all other database errors still fail.
+    if (isMissingOptionalHistory(histories.error)) {
+      histories.data = [];
+      histories.error = null;
+      console.warn("data route: optional history unavailable");
+    }
     const issue = [leaderships, activists, assessors, admins, families, credentials, histories].find((result) => result.error)?.error;
     if (issue) throw issue;
     const allLeaderships = leaderships.data.map(leadership);
@@ -163,6 +176,8 @@ function fields(body) {
     mother: body.mother || null,
     email: String(body.email || "").trim() || null,
     neighborhood: body.neighborhood || null,
+    ...(Object.hasOwn(body, "municipality") ? { municipality: String(body.municipality || "").trim() || null } : {}),
+    ...(Object.hasOwn(body, "manausZone") ? { manaus_zone: String(body.manausZone || "").trim() || null } : {}),
     cep: body.cep || null,
     title: onlyDigits(body.title).slice(0, 12) || null,
     electoral_zone: onlyDigits(body.zone).slice(0, 3) || null,
@@ -178,6 +193,7 @@ export async function POST(request) {
     const session = sessionFromRequest(request);
     if (!session || !["admin", "leader"].includes(session.role)) return fail("Faça login para continuar.", 401);
     const body = await request.json();
+    if (!body.id && ["save-leadership", "save-activist"].includes(body.action) && registrationsClosed()) return fail(REGISTRATION_CLOSED_MESSAGE, 403);
     const db = supabaseAdmin();
     if (session.role === "leader") {
       const { data: currentLeader, error: accessError } = await db.from("leaderships").select("id,archived_at").eq("id", session.id).maybeSingle();
@@ -242,6 +258,7 @@ export async function POST(request) {
       }
       const temporaryPassword = String(Math.floor(10000000 + Math.random() * 90000000));
       const { hashPassword } = await import("../../../lib/server-auth");
+      if (registrationsClosed()) return fail(REGISTRATION_CLOSED_MESSAGE, 403);
       const { data, error } = await db
         .from("leaderships")
         .insert({ ...values, password_hash: hashPassword(temporaryPassword) })
@@ -270,6 +287,7 @@ export async function POST(request) {
         if (error) throw error;
         return NextResponse.json({ item: activist(data) });
       }
+      if (registrationsClosed()) return fail(REGISTRATION_CLOSED_MESSAGE, 403);
       const { data, error } = await db
         .from("activists")
         .insert({ ...values, leadership_id: leadershipId })
