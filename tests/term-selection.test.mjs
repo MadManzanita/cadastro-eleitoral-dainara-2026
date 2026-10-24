@@ -37,11 +37,11 @@ test("mantém o modelo original byte a byte", async () => {
   assert.equal(hash, "FEA25DAEF31EAD1A0CD3C4C51DEB158012340F43CE197A20F8A73DB6EC9756E6");
 });
 
-test("acrescenta o bairro depois da rua e do número sem alterar os valores", () => {
+test("acrescenta somente o nome do bairro depois da rua e do número", () => {
   assert.equal(
     formatTermAddress({ address: "Rua das Flores, 123", neighborhood: "Centro" }),
-    "Rua das Flores, 123, Bairro: Centro",
+    "Rua das Flores, 123, Centro",
   );
   assert.equal(formatTermAddress({ address: "Avenida Brasil, 45" }), "Avenida Brasil, 45");
-  assert.equal(formatTermAddress({ neighborhood: "Cidade Nova" }), "Bairro: Cidade Nova");
+  assert.equal(formatTermAddress({ neighborhood: "Cidade Nova" }), "Cidade Nova");
 });
